@@ -43,3 +43,6 @@ next-env.d.ts
 
 # claude code local settings
 .claude/
+
+# personal data — backfill scripts contain real salaries, expenses, BTC buys, etc.
+supabase/backfill_*.sql
