@@ -128,3 +128,12 @@ export type NetworthSnapshot = {
   created_at: string;
   updated_at: string;
 };
+
+export type InvestmentPlanRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  percentage: number;
+  display_order: number;
+  created_at: string;
+};

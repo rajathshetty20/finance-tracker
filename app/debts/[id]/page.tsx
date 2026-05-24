@@ -53,9 +53,17 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
         } />
       </section>
 
-      {debt.status === "open" && (
-        <p className="text-xs text-zinc-500">Interest committed upfront: ₹{interestCommit.toLocaleString("en-IN")}</p>
-      )}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-zinc-500">
+        {payments.length > 0 && (
+          <span>
+            Latest EMI: <strong className="tabular-nums text-zinc-700 dark:text-zinc-200">₹{Number(payments[0].amount).toLocaleString("en-IN")}</strong>
+            <span className="ml-1 text-zinc-400">(paid {payments[0].date})</span>
+          </span>
+        )}
+        {debt.status === "open" && (
+          <span>Interest committed upfront: ₹{interestCommit.toLocaleString("en-IN")}</span>
+        )}
+      </div>
 
       {debt.status === "open" && (
         <>

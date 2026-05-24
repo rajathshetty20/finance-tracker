@@ -2,10 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CashBalance,
+  Category,
   Debt,
   DebtPayment,
   Investment,
   InvestmentEntry,
+  InvestmentPlanRow,
   MoneySource,
   NetworthSnapshot,
   Phase,
@@ -26,6 +28,7 @@ export default async function DashboardPage() {
     { data: debtsData },
     { data: debtPaymentsData },
     { data: moneyData },
+    { data: planData },
   ] = await Promise.all([
     supabase.from("phases").select("*").order("start_date", { ascending: false }),
     supabase.from("cash_balances").select("*"),
@@ -34,6 +37,7 @@ export default async function DashboardPage() {
     supabase.from("debts").select("*"),
     supabase.from("debt_payments").select("*"),
     supabase.from("money_sources").select("*"),
+    supabase.from("investment_plan").select("*").order("display_order", { ascending: true }),
   ]);
 
   const phases = (phasesData ?? []) as Phase[];
@@ -58,10 +62,12 @@ export default async function DashboardPage() {
     );
   }
 
-  // Phase-scoped income/expense for current phase
-  const [{ data: expensesData }, { data: incomesData }] = await Promise.all([
+  // Phase-scoped income/expense for current phase, plus income categories
+  // (used to identify the "Salary" category for the inhand-salary metric).
+  const [{ data: expensesData }, { data: incomesData }, { data: categoriesData }] = await Promise.all([
     supabase.from("expenses").select("*").eq("phase_id", currentPhase.id),
     supabase.from("incomes").select("*").eq("phase_id", currentPhase.id),
+    supabase.from("categories").select("*").eq("kind", "income"),
   ]);
 
   const cash = (cashData ?? []) as CashBalance[];
@@ -72,6 +78,7 @@ export default async function DashboardPage() {
   const money = (moneyData ?? []) as MoneySource[];
   const expenses = (expensesData ?? []) as Entry[];
   const incomes = (incomesData ?? []) as Entry[];
+  const incomeCategories = (categoriesData ?? []) as Category[];
 
   const entriesByInv = new Map<string, InvestmentEntry[]>();
   for (const inv of invs) entriesByInv.set(inv.id, []);
@@ -142,6 +149,43 @@ export default async function DashboardPage() {
   // Debt-to-asset ratio (informational, alongside debt pending)
   const assets_for_ratio = invest_market + cashSum;
   const debt_ratio = assets_for_ratio > 0 ? debt_pending / assets_for_ratio : null;
+
+  // Cashflow metrics
+  // Inhand salary = latest income entry in current phase whose category is "Salary"
+  const salaryCat = incomeCategories.find((c) => c.name === "Salary");
+  let inhandSalary: number | null = null;
+  if (salaryCat) {
+    const salaryEntries = incomes
+      .filter((e) => e.category_id === salaryCat.id)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (salaryEntries.length > 0) inhandSalary = Number(salaryEntries[0].amount);
+  }
+  // Total EMI = sum of each open debt's most recent payment amount.
+  // (No dedicated emi column — the last actual EMI is a reliable proxy.)
+  const lastEmiAmount = new Map<string, number>();
+  const lastEmiDate = new Map<string, string>();
+  for (const p of payments) {
+    const prev = lastEmiDate.get(p.debt_id);
+    if (!prev || p.date > prev) {
+      lastEmiDate.set(p.debt_id, p.date);
+      lastEmiAmount.set(p.debt_id, Number(p.amount));
+    }
+  }
+  const totalEmi = openDebts.reduce((a, d) => a + (lastEmiAmount.get(d.id) ?? 0), 0);
+  // Monthly investable = inhand_salary − past avg monthly expense − total EMI
+  const monthlyInvestable =
+    inhandSalary !== null && showAverages
+      ? inhandSalary - avgPastExpense - totalEmi
+      : null;
+  // SIP rate = monthly investable as % of inhand salary
+  const sipRate =
+    inhandSalary !== null && inhandSalary > 0 && monthlyInvestable !== null
+      ? monthlyInvestable / inhandSalary
+      : null;
+
+  // Target investment allocation — from investment_plan table.
+  const plan = (planData ?? []) as InvestmentPlanRow[];
+  const allocation = plan.map((r) => ({ name: r.name, pct: Number(r.percentage) / 100 }));
 
   const oldestCashUpdate =
     cash.length > 0
@@ -232,32 +276,65 @@ export default async function DashboardPage() {
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="text-sm font-medium text-zinc-500">
-          Current phase averages
-          {!showAverages && <span className="ml-2 text-xs text-zinc-400">(needs a completed month)</span>}
+          Cashflows summary
+          {!showAverages && <span className="ml-2 text-xs text-zinc-400">(averages need a completed month)</span>}
         </h2>
-        <p className="mt-1 text-xs text-zinc-400">
-          Divided by {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"} (current month {months} excluded — salary lands at end-of-month).
-        </p>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
+          <Row label="Inhand salary"             value={inhandSalary !== null ? fmt(inhandSalary) : "—"} />
           <Row label="Avg monthly income"        value={showAverages ? fmt(avgIncome)         : "—"} />
           <Row label="Past avg monthly expense"  value={showAverages ? fmt(avgPastExpense)    : "—"} />
           <Row label="Current month expense"     value={fmt(phase_expense_curr)} />
+          <Row label="Total EMI"                 value={fmt(totalEmi)} />
+          <Row
+            label="Monthly investable"
+            value={monthlyInvestable !== null ? fmt(monthlyInvestable) : "—"}
+            sub="inhand salary − past avg expense − total EMI"
+          />
           <Row
             label="Savings rate"
             value={showAverages && savingsRate !== null ? `${(savingsRate * 100).toFixed(1)}%` : "—"}
-            bold
+          />
+          <Row
+            label="SIP rate"
+            value={sipRate !== null ? `${(sipRate * 100).toFixed(1)}%` : "—"}
+            sub="monthly investable ÷ inhand salary"
           />
         </div>
       </section>
+
+      {allocation.length > 0 && (
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-medium text-zinc-500">Investment plan</h2>
+          <span className="text-xs text-zinc-400">SIP: {monthlyInvestable !== null ? fmt(monthlyInvestable) : "—"}/mo</span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          {allocation.map((a) => (
+            <Row
+              key={a.name}
+              label={`${a.name} (${(a.pct * 100).toFixed(a.pct * 100 % 1 === 0 ? 0 : 1)}%)`}
+              value={
+                monthlyInvestable !== null && monthlyInvestable > 0
+                  ? fmt(monthlyInvestable * a.pct)
+                  : "—"
+              }
+            />
+          ))}
+        </div>
+      </section>
+      )}
     </div>
   );
 }
 
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+function Row({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex justify-between gap-2">
-      <span className="text-zinc-500">{label}</span>
-      <span className={`tabular-nums ${bold ? "font-semibold" : ""}`}>{value}</span>
+    <div className="flex flex-col">
+      <div className="flex justify-between gap-2">
+        <span className="text-zinc-500">{label}</span>
+        <span className="tabular-nums">{value}</span>
+      </div>
+      {sub && <div className="text-right text-[10px] text-zinc-400 tabular-nums">{sub}</div>}
     </div>
   );
 }

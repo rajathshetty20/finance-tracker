@@ -162,6 +162,23 @@ create table if not exists public.cash_balances (
 
 
 -- ============================================================
+-- investment_plan (target allocation; not editable from UI in v1)
+-- ============================================================
+create table if not exists public.investment_plan (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users on delete cascade,
+  name          text not null,
+  percentage    numeric not null check (percentage >= 0 and percentage <= 100),
+  display_order int not null default 0,
+  created_at    timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+create index if not exists investment_plan_user_order
+  on public.investment_plan (user_id, display_order);
+
+
+-- ============================================================
 -- networth_snapshots
 -- ============================================================
 create table if not exists public.networth_snapshots (
@@ -217,6 +234,7 @@ grant select, insert, update, delete on public.debt_payments      to authenticat
 grant select, insert, update, delete on public.cash_balances      to authenticated;
 grant select, insert, update, delete on public.money_sources      to authenticated;
 grant select, insert, update, delete on public.networth_snapshots to authenticated;
+grant select, insert, update, delete on public.investment_plan    to authenticated;
 
 
 -- ============================================================
@@ -233,6 +251,7 @@ alter table public.debt_payments      enable row level security;
 alter table public.cash_balances      enable row level security;
 alter table public.money_sources      enable row level security;
 alter table public.networth_snapshots enable row level security;
+alter table public.investment_plan    enable row level security;
 
 drop policy if exists "phases are owner-only" on public.phases;
 create policy "phases are owner-only" on public.phases
@@ -276,4 +295,8 @@ create policy "money_sources are owner-only" on public.money_sources
 
 drop policy if exists "networth_snapshots are owner-only" on public.networth_snapshots;
 create policy "networth_snapshots are owner-only" on public.networth_snapshots
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "investment_plan are owner-only" on public.investment_plan;
+create policy "investment_plan are owner-only" on public.investment_plan
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
