@@ -9,13 +9,12 @@ import type {
   InvestmentEntry,
   InvestmentPlanRow,
   MoneySource,
-  NetworthSnapshot,
   Phase,
   Entry,
 } from "@/lib/types";
 import { todayISO, monthsInRange, daysInRange, currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
 import NetworthChart from "./NetworthChart";
-import SnapshotButton from "./SnapshotButton";
+import { buildNetworthSeries } from "@/lib/networthSeries";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -62,11 +61,11 @@ export default async function DashboardPage() {
     );
   }
 
-  // Phase-scoped income/expense for current phase, plus income categories
-  // (used to identify the "Salary" category for the inhand-salary metric).
+  // All-phase income/expense (used for the NW series across history). The current
+  // phase's slice is derived from this for the cashflow/savings metrics below.
   const [{ data: expensesData }, { data: incomesData }, { data: categoriesData }] = await Promise.all([
-    supabase.from("expenses").select("*").eq("phase_id", currentPhase.id),
-    supabase.from("incomes").select("*").eq("phase_id", currentPhase.id),
+    supabase.from("expenses").select("*"),
+    supabase.from("incomes").select("*"),
     supabase.from("categories").select("*").eq("kind", "income"),
   ]);
 
@@ -76,8 +75,10 @@ export default async function DashboardPage() {
   const debts = (debtsData ?? []) as Debt[];
   const payments = (debtPaymentsData ?? []) as DebtPayment[];
   const money = (moneyData ?? []) as MoneySource[];
-  const expenses = (expensesData ?? []) as Entry[];
-  const incomes = (incomesData ?? []) as Entry[];
+  const allExpenses = (expensesData ?? []) as Entry[];
+  const allIncomes = (incomesData ?? []) as Entry[];
+  const expenses = allExpenses.filter((e) => e.phase_id === currentPhase.id);
+  const incomes = allIncomes.filter((e) => e.phase_id === currentPhase.id);
   const incomeCategories = (categoriesData ?? []) as Category[];
 
   const entriesByInv = new Map<string, InvestmentEntry[]>();
@@ -192,13 +193,16 @@ export default async function DashboardPage() {
       ? cash.reduce((min, r) => (r.updated_at < min ? r.updated_at : min), cash[0].updated_at)
       : null;
 
-  // Load NW snapshot history for the chart.
-  const { data: snapshotsData } = await supabase
-    .from("networth_snapshots")
-    .select("date, nw, invest_market, cash, debt_pending")
-    .order("date", { ascending: true });
-  const snapshots = (snapshotsData ?? []) as Pick<NetworthSnapshot, "date" | "nw" | "invest_market" | "cash" | "debt_pending">[];
-  const lastSnapshotDate = snapshots.length > 0 ? snapshots[snapshots.length - 1].date : null;
+  const nwSeries = buildNetworthSeries({
+    invs,
+    invEntries,
+    debts,
+    payments,
+    money,
+    incomes: allIncomes,
+    expenses: allExpenses,
+    today: todayISO(),
+  });
 
   return (
     <div className="space-y-6">
@@ -210,20 +214,11 @@ export default async function DashboardPage() {
       </header>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs text-zinc-500">Net Worth</div>
-            <div className={`mt-1 text-4xl font-semibold tabular-nums ${NW < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
-              {fmt(NW)}
-            </div>
+        <div>
+          <div className="text-xs text-zinc-500">Net Worth</div>
+          <div className={`mt-1 text-4xl font-semibold tabular-nums ${NW < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+            {fmt(NW)}
           </div>
-          <SnapshotButton
-            nw={NW}
-            invest_market={invest_market}
-            cash={cashSum}
-            debt_pending={debt_pending}
-            lastSnapshotDate={lastSnapshotDate}
-          />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div className="flex justify-between sm:block">
@@ -247,7 +242,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <NetworthChart data={snapshots} />
+      <NetworthChart data={nwSeries} />
 
       <section className={`rounded-xl border p-4 ${Math.abs(cash_discrepancy) < 0.01 ? "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900" : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"}`}>
         <div className="flex items-baseline justify-between">

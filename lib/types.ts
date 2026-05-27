@@ -117,18 +117,6 @@ export type DebtPayment = {
   created_at: string;
 };
 
-export type NetworthSnapshot = {
-  id: string;
-  user_id: string;
-  date: string;
-  nw: number;
-  invest_market: number;
-  cash: number;
-  debt_pending: number;
-  created_at: string;
-  updated_at: string;
-};
-
 export type InvestmentPlanRow = {
   id: string;
   user_id: string;
