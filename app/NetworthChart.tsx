@@ -34,7 +34,12 @@ function fmtFull(n: number): string {
 
 function fmtDateShort(iso: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
+}
+
+function fmtDateLong(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function NetworthChart({ data }: { data: Point[] }) {
@@ -92,7 +97,7 @@ export default function NetworthChart({ data }: { data: Point[] }) {
                   : "";
                 return [fmtFull(Number(v)), label];
               }}
-              labelFormatter={(d) => fmtDateShort(String(d))}
+              labelFormatter={(d) => fmtDateLong(String(d))}
               contentStyle={{
                 backgroundColor: "rgb(255 255 255)",
                 border: "1px solid rgb(228 228 231)",

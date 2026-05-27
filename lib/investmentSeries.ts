@@ -26,7 +26,10 @@ export function seriesForInvestment(
   if (inv.status === "closed" && inv.closed_on) {
     const closeDate = inv.closed_on;
     const trimmed = points.filter((p) => p.date < closeDate);
-    trimmed.push({ date: closeDate, book: 0, market: 0 });
+    // Post-close: market=0 (holding is gone); book=realized loss (or 0 if gain).
+    // `book` here is Σcontrib − Σwithdrawals; for a gain close the close-out
+    // withdrawal makes this negative, which we clamp to 0.
+    trimmed.push({ date: closeDate, book: Math.max(0, book), market: 0 });
     return trimmed;
   }
   return points;
