@@ -1,15 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Debt, DebtPayment } from "@/lib/types";
+import type { Debt, DebtPayment, Investment, InvestmentEntry } from "@/lib/types";
+import { impliedAnnualRate } from "@/lib/debtRate";
+import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
+import { formatXirr } from "@/lib/xirr";
 import AddPaymentForm from "./AddPaymentForm";
 import CloseDebtForm from "./CloseDebtForm";
+
+function todayISO() {
+  const d = new Date();
+  const tz = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+}
 
 export default async function DebtDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: debtData }, { data: paymentsData }] = await Promise.all([
+  const [
+    { data: debtData },
+    { data: paymentsData },
+    { data: invsData },
+    { data: entriesData },
+  ] = await Promise.all([
     supabase.from("debts").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("debt_payments")
@@ -17,16 +31,35 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
       .eq("debt_id", id)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false }),
+    supabase.from("investments").select("*"),
+    supabase.from("investment_entries").select("*"),
   ]);
 
   if (!debtData) notFound();
   const debt = debtData as Debt;
   const payments = (paymentsData ?? []) as DebtPayment[];
+  const invs = (invsData ?? []) as Investment[];
+  const allEntries = (entriesData ?? []) as InvestmentEntry[];
 
   const paid = payments.reduce((a, p) => a + Number(p.amount), 0);
   const pending = Number(debt.total_payable) - paid;
   const interestCommit = Number(debt.total_payable) - Number(debt.principal);
   const closureAmount = Number(debt.principal) - paid;
+
+  const latestEmi = payments.length > 0 ? Number(payments[0].amount) : null;
+  const debtRate =
+    latestEmi !== null
+      ? impliedAnnualRate(Number(debt.principal), latestEmi, Number(debt.total_payable))
+      : null;
+
+  const periodEnd = debt.status === "closed" && debt.closed_on ? debt.closed_on : todayISO();
+  const entriesByInvId = new Map<string, InvestmentEntry[]>();
+  for (const inv of invs) entriesByInvId.set(inv.id, []);
+  for (const e of allEntries) {
+    const arr = entriesByInvId.get(e.investment_id);
+    if (arr) arr.push(e);
+  }
+  const periodXirr = portfolioXirrOverPeriod(invs, entriesByInvId, debt.start_date, periodEnd);
 
   return (
     <div className="space-y-6">
@@ -64,6 +97,26 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
           <span>Interest committed upfront: ₹{interestCommit.toLocaleString("en-IN")}</span>
         )}
       </div>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-zinc-500">Cost vs portfolio return</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Stat label="Implied annual rate*" value={formatXirr(debtRate)} />
+          <Stat
+            label={`Portfolio XIRR (${debt.start_date} → ${periodEnd})`}
+            value={formatXirr(periodXirr)}
+          />
+        </div>
+        <p className="text-xs text-zinc-500">
+          {latestEmi !== null ? (
+            <>
+              * Assumes a constant monthly EMI of ₹{latestEmi.toLocaleString("en-IN")}.
+            </>
+          ) : (
+            <>* Add an EMI payment to estimate the implied rate.</>
+          )}
+        </p>
+      </section>
 
       {debt.status === "open" && (
         <>

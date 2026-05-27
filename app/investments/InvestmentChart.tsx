@@ -41,6 +41,51 @@ function toTs(iso: string): number {
   return new Date(iso + "T00:00:00").getTime();
 }
 
+type TooltipItem = { dataKey?: string | number; value?: number };
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipItem[];
+  label?: number | string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const book = Number(payload.find((p) => p.dataKey === "book")?.value ?? 0);
+  const market = Number(payload.find((p) => p.dataKey === "market")?.value ?? 0);
+  const gain = market - book;
+  const pct = book !== 0 ? (gain / book) * 100 : 0;
+  const gainColor = gain >= 0 ? "rgb(4 120 87)" : "rgb(220 38 38)";
+  return (
+    <div
+      style={{
+        backgroundColor: "rgb(255 255 255)",
+        border: "1px solid rgb(228 228 231)",
+        borderRadius: "8px",
+        fontSize: "12px",
+        padding: "8px 10px",
+        lineHeight: 1.5,
+      }}
+    >
+      <div style={{ color: "rgb(113 113 122)" }}>{fmtDateLong(Number(label))}</div>
+      <div style={{ marginTop: 4 }}>
+        <span style={{ color: "rgb(113 113 122)" }}>Invested </span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(book)}</span>
+      </div>
+      <div>
+        <span style={{ color: "rgb(113 113 122)" }}>Market </span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(market)}</span>
+      </div>
+      <div style={{ marginTop: 4, color: gainColor, fontVariantNumeric: "tabular-nums" }}>
+        {pct >= 0 ? "+" : ""}
+        {pct.toFixed(1)}%
+      </div>
+    </div>
+  );
+}
+
 export default function InvestmentChart({
   data,
   title,
@@ -95,20 +140,7 @@ export default function InvestmentChart({
               width={70}
               domain={["auto", "auto"]}
             />
-            <Tooltip
-              formatter={(v, _n, item) => {
-                const key = item?.dataKey as "book" | "market" | undefined;
-                const label = key === "book" ? "Invested" : key === "market" ? "Market" : "";
-                return [fmtFull(Number(v)), label];
-              }}
-              labelFormatter={(t) => fmtDateLong(Number(t))}
-              contentStyle={{
-                backgroundColor: "rgb(255 255 255)",
-                border: "1px solid rgb(228 228 231)",
-                borderRadius: "8px",
-                fontSize: "12px",
-              }}
-            />
+            <Tooltip content={<ChartTooltip />} />
             <Legend
               verticalAlign="top"
               height={24}
