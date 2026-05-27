@@ -4,6 +4,8 @@ import type { Investment, InvestmentEntry } from "@/lib/types";
 import { xirr, formatXirr, type CashFlow } from "@/lib/xirr";
 import AddInvestmentForm from "./AddInvestmentForm";
 import AllocationPie from "./AllocationPie";
+import InvestmentChart from "./InvestmentChart";
+import { aggregateInvestmentSeries } from "@/lib/investmentSeries";
 
 function todayISO() {
   const d = new Date();
@@ -127,6 +129,11 @@ export default async function InvestmentsPage() {
         />
         <Stat label="Portfolio XIRR" value={formatXirr(portXirr)} />
       </section>
+
+      <InvestmentChart
+        title="Invested vs market over time"
+        data={aggregateInvestmentSeries(invs, byInvId)}
+      />
 
       <AllocationPie
         data={open.map((inv) => ({

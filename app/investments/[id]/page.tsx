@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Investment, InvestmentEntry } from "@/lib/types";
 import { xirr, formatXirr, type CashFlow } from "@/lib/xirr";
+import { seriesForInvestment } from "@/lib/investmentSeries";
 import AddEntryForm from "./AddEntryForm";
 import CloseForm from "./CloseForm";
+import InvestmentChart from "../InvestmentChart";
 
 function todayISO() {
   const d = new Date();
@@ -76,6 +78,11 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
         <Stat label={investment.status === "open" ? "Market (latest NAV)" : "Market"} value={`₹${market.toLocaleString("en-IN")}`} />
         <Stat label="XIRR" value={formatXirr(r)} />
       </section>
+
+      <InvestmentChart
+        title="Invested vs market over time"
+        data={seriesForInvestment(investment, entries)}
+      />
 
       {investment.status === "open" && (
         <>
