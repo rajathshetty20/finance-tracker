@@ -32,27 +32,30 @@ function fmtFull(n: number): string {
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 }
 
-function fmtDateShort(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+function fmtDateShort(ts: number): string {
+  const d = new Date(ts);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
 }
 
-function fmtDateLong(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+function fmtDateLong(ts: number): string {
+  const d = new Date(ts);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function toTs(iso: string): number {
+  return new Date(iso + "T00:00:00").getTime();
 }
 
 export default function NetworthChart({ data }: { data: Point[] }) {
   if (data.length === 0) return null;
 
+  const points = data.map((p) => ({ ...p, ts: toTs(p.date) }));
   const first = data[0].nw;
   const last = data[data.length - 1].nw;
   const change = last - first;
   const pct = first !== 0 ? (change / Math.abs(first)) * 100 : 0;
   const days = Math.round(
-    (new Date(data[data.length - 1].date + "T00:00:00").getTime() -
-      new Date(data[0].date + "T00:00:00").getTime()) /
-      86_400_000,
+    (toTs(data[data.length - 1].date) - toTs(data[0].date)) / 86_400_000,
   );
   const singlePoint = data.length === 1;
 
@@ -68,10 +71,13 @@ export default function NetworthChart({ data }: { data: Point[] }) {
       </div>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgb(228 228 231)" />
             <XAxis
-              dataKey="date"
+              dataKey="ts"
+              type="number"
+              scale="time"
+              domain={["dataMin", "dataMax"]}
               tickFormatter={fmtDateShort}
               tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
               axisLine={{ stroke: "rgb(228 228 231)" }}
@@ -97,7 +103,7 @@ export default function NetworthChart({ data }: { data: Point[] }) {
                   : "";
                 return [fmtFull(Number(v)), label];
               }}
-              labelFormatter={(d) => fmtDateLong(String(d))}
+              labelFormatter={(t) => fmtDateLong(Number(t))}
               contentStyle={{
                 backgroundColor: "rgb(255 255 255)",
                 border: "1px solid rgb(228 228 231)",

@@ -27,14 +27,18 @@ function fmtFull(n: number): string {
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 }
 
-function fmtDateShort(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+function fmtDateShort(ts: number): string {
+  const d = new Date(ts);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
 }
 
-function fmtDateLong(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+function fmtDateLong(ts: number): string {
+  const d = new Date(ts);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function toTs(iso: string): number {
+  return new Date(iso + "T00:00:00").getTime();
 }
 
 export default function InvestmentChart({
@@ -46,6 +50,7 @@ export default function InvestmentChart({
 }) {
   if (data.length === 0) return null;
 
+  const points = data.map((p) => ({ ...p, ts: toTs(p.date) }));
   const last = data[data.length - 1];
   const gain = last.market - last.book;
   const pct = last.book !== 0 ? (gain / last.book) * 100 : 0;
@@ -69,10 +74,13 @@ export default function InvestmentChart({
       </div>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgb(228 228 231)" />
             <XAxis
-              dataKey="date"
+              dataKey="ts"
+              type="number"
+              scale="time"
+              domain={["dataMin", "dataMax"]}
               tickFormatter={fmtDateShort}
               tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
               axisLine={{ stroke: "rgb(228 228 231)" }}
@@ -93,7 +101,7 @@ export default function InvestmentChart({
                 const label = key === "book" ? "Invested" : key === "market" ? "Market" : "";
                 return [fmtFull(Number(v)), label];
               }}
-              labelFormatter={(d) => fmtDateLong(String(d))}
+              labelFormatter={(t) => fmtDateLong(Number(t))}
               contentStyle={{
                 backgroundColor: "rgb(255 255 255)",
                 border: "1px solid rgb(228 228 231)",
