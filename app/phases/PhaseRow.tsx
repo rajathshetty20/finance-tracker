@@ -3,8 +3,23 @@
 import { useState, useTransition } from "react";
 import { renamePhase, editFirstPhaseStartDate } from "./actions";
 import type { Phase } from "@/lib/types";
+import { fmtINR } from "@/lib/dates";
 
-export default function PhaseRow({ phase, canEditStart }: { phase: Phase; canEditStart: boolean }) {
+export type PhaseStats = {
+  avgIncome: number;
+  avgExpense: number;
+  savingsRatio: number | null;
+};
+
+export default function PhaseRow({
+  phase,
+  canEditStart,
+  stats,
+}: {
+  phase: Phase;
+  canEditStart: boolean;
+  stats?: PhaseStats;
+}) {
   const [editingName, setEditingName] = useState(false);
   const [editingStart, setEditingStart] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +117,12 @@ export default function PhaseRow({ phase, canEditStart }: { phase: Phase; canEdi
             )}
           </div>
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          {stats && (
+            <div className="mt-1 text-xs text-zinc-500 tabular-nums">
+              avg income {fmtINR(stats.avgIncome)}/mo · avg expense {fmtINR(stats.avgExpense)}/mo · savings{" "}
+              {stats.savingsRatio !== null ? `${(stats.savingsRatio * 100).toFixed(1)}%` : "—"}
+            </div>
+          )}
         </div>
       </div>
     </li>

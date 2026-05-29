@@ -69,7 +69,7 @@ export default function ExpenseRow({
         <span className="w-32 truncate text-sm">{entry.category?.name ?? "—"}</span>
         <span className="min-w-0 flex-1 truncate text-xs text-zinc-500">{entry.note}</span>
       </div>
-      <span className="text-sm tabular-nums">₹{Number(entry.amount).toLocaleString("en-IN")}</span>
+      <span className="text-sm tabular-nums text-red-600 dark:text-red-400">−₹{Number(entry.amount).toLocaleString("en-IN")}</span>
       {canEdit && (
         <div className="flex items-center gap-3 text-xs">
           <button onClick={() => setEditing(true)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">edit</button>

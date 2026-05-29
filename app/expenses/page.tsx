@@ -32,7 +32,7 @@ export default async function ExpensesPage() {
           <h1 className="text-2xl font-semibold">Expenses</h1>
         </header>
         <p className="text-sm text-zinc-500">
-          Create a phase first in <Link href="/phases" className="underline">Phases</Link>.
+          Create a phase first in <Link href="/settings" className="underline">Settings</Link>.
         </p>
       </div>
     );

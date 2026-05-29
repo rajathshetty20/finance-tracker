@@ -46,6 +46,45 @@ function toTs(iso: string): number {
   return new Date(iso + "T00:00:00").getTime();
 }
 
+type TooltipItem = { payload?: Point & { ts: number } };
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipItem[];
+  label?: number | string;
+}) {
+  if (!active || !payload || payload.length === 0 || !payload[0].payload) return null;
+  const p = payload[0].payload;
+  const assets = p.invest_market + p.cash;
+  const ratio = assets > 0 ? (p.debt_pending / assets) * 100 : 0;
+  return (
+    <div
+      style={{
+        backgroundColor: "rgb(255 255 255)",
+        border: "1px solid rgb(228 228 231)",
+        borderRadius: "8px",
+        fontSize: "12px",
+        padding: "8px 10px",
+        lineHeight: 1.5,
+      }}
+    >
+      <div style={{ color: "rgb(113 113 122)" }}>{fmtDateLong(Number(label))}</div>
+      <div style={{ marginTop: 4 }}>
+        <span style={{ color: "rgb(113 113 122)" }}>Net Worth </span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(p.nw)}</span>
+      </div>
+      <div>
+        <span style={{ color: "rgb(113 113 122)" }}>Debt ratio </span>
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>{ratio.toFixed(1)}%</span>
+      </div>
+    </div>
+  );
+}
+
 export default function NetworthChart({ data }: { data: Point[] }) {
   if (data.length === 0) return null;
 
@@ -54,7 +93,7 @@ export default function NetworthChart({ data }: { data: Point[] }) {
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-medium text-zinc-500">Net worth over time</h2>
+      <h2 className="text-sm font-medium text-zinc-500">Net worth</h2>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -78,25 +117,7 @@ export default function NetworthChart({ data }: { data: Point[] }) {
               width={70}
               domain={["auto", "auto"]}
             />
-            <Tooltip
-              formatter={(v, _n, item) => {
-                const key = item?.dataKey as keyof Point | undefined;
-                const label =
-                  key === "nw" ? "Net Worth"
-                  : key === "invest_market" ? "Investments"
-                  : key === "cash" ? "Cash"
-                  : key === "debt_pending" ? "Debt pending"
-                  : "";
-                return [fmtFull(Number(v)), label];
-              }}
-              labelFormatter={(t) => fmtDateLong(Number(t))}
-              contentStyle={{
-                backgroundColor: "rgb(255 255 255)",
-                border: "1px solid rgb(228 228 231)",
-                borderRadius: "8px",
-                fontSize: "12px",
-              }}
-            />
+            <Tooltip content={<ChartTooltip />} />
             <Line
               type="monotone"
               dataKey="nw"

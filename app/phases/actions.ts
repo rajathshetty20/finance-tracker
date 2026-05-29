@@ -41,7 +41,7 @@ export async function createFirstPhase(formData: FormData) {
   });
   if (error) return { error: error.message };
 
-  revalidatePath("/phases");
+  revalidatePath("/settings");
   revalidatePath("/");
   return { ok: true };
 }
@@ -116,7 +116,7 @@ export async function endAndStartNewPhase(formData: FormData) {
     return { error: newErr.message };
   }
 
-  revalidatePath("/phases");
+  revalidatePath("/settings");
   revalidatePath("/");
   return { ok: true };
 }
@@ -130,7 +130,7 @@ export async function renamePhase(formData: FormData) {
   const { error } = await supabase.from("phases").update({ name }).eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath("/phases");
+  revalidatePath("/settings");
   revalidatePath("/");
   return { ok: true };
 }
@@ -172,7 +172,7 @@ export async function editFirstPhaseStartDate(formData: FormData) {
   const { error } = await supabase.from("phases").update({ start_date }).eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath("/phases");
+  revalidatePath("/settings");
   revalidatePath("/");
   return { ok: true };
 }

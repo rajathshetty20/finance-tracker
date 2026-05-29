@@ -42,7 +42,7 @@ export default async function RootLayout({
             <div className="mx-auto max-w-5xl px-4 py-3">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <div className="flex min-w-0 items-center gap-3">
-                  <Link href="/" className="whitespace-nowrap font-semibold">Finance tracker</Link>
+                  <span className="whitespace-nowrap font-semibold">Finance tracker</span>
                   {currentPhase && (
                     <span className="truncate rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       {currentPhase.name}
@@ -59,14 +59,14 @@ export default async function RootLayout({
                 </form>
               </div>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                <Link href="/phases" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Phases</Link>
+                <Link href="/" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Home</Link>
                 <Link href="/expenses" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Expenses</Link>
                 <Link href="/incomes" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Incomes</Link>
                 <Link href="/investments" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Investments</Link>
                 <Link href="/debts" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Debts</Link>
                 <Link href="/cash" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Cash</Link>
                 <Link href="/money-sources" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Money sources</Link>
-                <Link href="/settings" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Categories</Link>
+                <Link href="/settings" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Settings</Link>
               </div>
             </div>
           </nav>

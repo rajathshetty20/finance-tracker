@@ -52,7 +52,7 @@ export default async function DashboardPage() {
           </p>
         </header>
         <Link
-          href="/phases"
+          href="/settings"
           className="inline-block rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
           Create your first phase
@@ -206,13 +206,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-zinc-500">
-          Current phase: <strong>{currentPhase.name}</strong> · started {currentPhase.start_date}
-        </p>
-      </header>
-
       <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div>
           <div className="text-xs text-zinc-500">Net Worth</div>
@@ -222,7 +215,7 @@ export default async function DashboardPage() {
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div className="flex justify-between sm:block">
-            <span className="text-zinc-500">Investments (market)</span>
+            <span className="text-zinc-500">Investments</span>
             <span className="sm:block tabular-nums">{fmt(invest_market)}</span>
           </div>
           <div className="flex justify-between sm:block">
@@ -244,29 +237,30 @@ export default async function DashboardPage() {
 
       <NetworthChart data={nwSeries} />
 
-      <section className={`rounded-xl border p-4 ${Math.abs(cash_discrepancy) < 0.01 ? "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900" : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"}`}>
-        <div className="flex items-baseline justify-between">
-          <div className="text-xs text-zinc-500">Cash discrepancy</div>
-          <div className={`text-lg font-semibold tabular-nums ${Math.abs(cash_discrepancy) < 0.01 ? "" : "text-amber-700 dark:text-amber-400"}`}>
-            {fmt(cash_discrepancy)}
-          </div>
+      {Math.abs(cash_discrepancy) >= 0.01 && (
+        <p className="text-xs text-zinc-500">
+          Cash discrepancy:{" "}
+          <span className="tabular-nums text-amber-700 dark:text-amber-400">{fmt(cash_discrepancy)}</span>
+          {" "}—{" "}
+          {cash_discrepancy > 0
+            ? "cash understated (likely received money not yet recorded)."
+            : "cash overstated (likely spent money not yet recorded)."}
+          {" "}
+          <Link href="/cash" className="underline">Sync cash</Link>.
+          {oldestCashUpdate && (
+            <span className="ml-1 text-zinc-400">
+              Oldest cash entry updated {Math.max(0, Math.floor((Date.now() - new Date(oldestCashUpdate).getTime()) / 86_400_000))}d ago.
+            </span>
+          )}
+        </p>
+      )}
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="text-sm font-medium text-zinc-500">Current phase</h2>
+        <div className="mt-1">
+          <strong>{currentPhase.name}</strong>
+          <span className="ml-2 text-xs text-zinc-500">started {currentPhase.start_date}</span>
         </div>
-        {Math.abs(cash_discrepancy) < 0.01 ? (
-          <p className="mt-1 text-xs text-zinc-500">Books are in sync.</p>
-        ) : (
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-            {cash_discrepancy > 0
-              ? "Cash is understated — you likely received money (income, loan, investment proceeds) and haven't updated cash yet."
-              : "Cash is overstated — you likely spent money (expense, EMI, investment contribution) and haven't updated cash yet."}
-            {" "}
-            <Link href="/cash" className="underline">Sync cash</Link>.
-          </p>
-        )}
-        {oldestCashUpdate && (
-          <p className="mt-2 text-xs text-zinc-400">
-            Oldest cash entry updated {Math.max(0, Math.floor((Date.now() - new Date(oldestCashUpdate).getTime()) / 86_400_000))} days ago.
-          </p>
-        )}
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
