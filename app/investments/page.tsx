@@ -113,8 +113,8 @@ export default async function InvestmentsPage() {
       </header>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Invested (book, open)" value={`₹${totalInvested.toLocaleString("en-IN")}`} />
-        <Stat label="Market value (open)" value={`₹${totalMarket.toLocaleString("en-IN")}`} />
+        <Stat label="Invested" value={`₹${totalInvested.toLocaleString("en-IN")}`} />
+        <Stat label="Market value" value={`₹${totalMarket.toLocaleString("en-IN")}`} />
         <Stat
           label="Unrealized gain"
           value={fmtSigned(unrealizedGain)}

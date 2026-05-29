@@ -39,7 +39,7 @@ export default function AllocationPie({
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <h2 className="text-sm font-medium text-zinc-500">Portfolio allocation</h2>
-      <p className="text-xs text-zinc-400">By current market value, open investments only.</p>
+      <p className="text-xs text-zinc-400">By current market value.</p>
       <div className="mt-3 grid items-center gap-4 sm:grid-cols-[1fr_220px]">
         <div className="h-60">
           <ResponsiveContainer width="100%" height="100%">

@@ -1,9 +1,9 @@
 "use client";
 
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -96,7 +96,13 @@ export default function NetworthChart({ data }: { data: Point[] }) {
       <h2 className="text-sm font-medium text-zinc-500">Net worth</h2>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="nwGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(16 185 129)" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="rgb(16 185 129)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgb(228 228 231)" />
             <XAxis
               dataKey="ts"
@@ -118,15 +124,16 @@ export default function NetworthChart({ data }: { data: Point[] }) {
               domain={["auto", "auto"]}
             />
             <Tooltip content={<ChartTooltip />} />
-            <Line
+            <Area
               type="monotone"
               dataKey="nw"
               stroke="rgb(16 185 129)"
-              strokeWidth={2}
-              dot={singlePoint ? { r: 4 } : false}
-              activeDot={{ r: 4 }}
+              strokeWidth={2.5}
+              fill="url(#nwGradient)"
+              dot={singlePoint ? { r: 4, fill: "rgb(16 185 129)" } : false}
+              activeDot={{ r: 5, fill: "rgb(16 185 129)", stroke: "white", strokeWidth: 2 }}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </section>

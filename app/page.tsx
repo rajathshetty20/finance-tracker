@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Banknote, CreditCard, LineChart as LineChartIcon, Percent } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CashBalance,
@@ -206,33 +207,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <div>
-          <div className="text-xs text-zinc-500">Net Worth</div>
-          <div className={`mt-1 text-4xl font-semibold tabular-nums ${NW < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
-            {fmt(NW)}
-          </div>
+      <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white p-6 dark:border-emerald-950/50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Net worth</div>
+        <div className={`mt-2 text-5xl font-semibold tabular-nums ${NW < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+          {fmt(NW)}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-          <div className="flex justify-between sm:block">
-            <span className="text-zinc-500">Investments</span>
-            <span className="sm:block tabular-nums">{fmt(invest_market)}</span>
-          </div>
-          <div className="flex justify-between sm:block">
-            <span className="text-zinc-500">Cash</span>
-            <span className="sm:block tabular-nums">{fmt(cashSum)}</span>
-          </div>
-          <div className="flex justify-between sm:block">
-            <span className="text-zinc-500">Debt pending (incl. interest)</span>
-            <span className="sm:block tabular-nums">−{fmt(debt_pending).replace("−", "")}</span>
-          </div>
-          <div className="flex justify-between sm:block">
-            <span className="text-zinc-500">Debt ratio (of assets)</span>
-            <span className="sm:block tabular-nums">
-              {debt_ratio === null ? "—" : `${(debt_ratio * 100).toFixed(1)}%`}
-            </span>
-          </div>
-        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <BreakdownStat icon={LineChartIcon} label="Investments" value={fmt(invest_market)} />
+        <BreakdownStat icon={Banknote} label="Cash" value={fmt(cashSum)} />
+        <BreakdownStat icon={CreditCard} label="Debt pending" value={`−${fmt(debt_pending).replace("−", "")}`} tone="neg" />
+        <BreakdownStat
+          icon={Percent}
+          label="Debt ratio"
+          value={debt_ratio === null ? "—" : `${(debt_ratio * 100).toFixed(1)}%`}
+        />
       </section>
 
       <NetworthChart data={nwSeries} />
@@ -312,6 +302,30 @@ export default async function DashboardPage() {
         </div>
       </section>
       )}
+    </div>
+  );
+}
+
+function BreakdownStat({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  tone?: "neg";
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <div className={`mt-1 text-base font-semibold tabular-nums ${tone === "neg" ? "text-red-600 dark:text-red-400" : ""}`}>
+        {value}
+      </div>
     </div>
   );
 }

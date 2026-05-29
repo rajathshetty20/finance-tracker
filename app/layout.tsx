@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
 import type { Phase } from "@/lib/types";
+import Nav from "./Nav";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -58,16 +58,7 @@ export default async function RootLayout({
                   </button>
                 </form>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                <Link href="/" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Home</Link>
-                <Link href="/expenses" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Expenses</Link>
-                <Link href="/incomes" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Incomes</Link>
-                <Link href="/investments" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Investments</Link>
-                <Link href="/debts" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Debts</Link>
-                <Link href="/cash" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Cash</Link>
-                <Link href="/money-sources" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Money sources</Link>
-                <Link href="/settings" className="whitespace-nowrap text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Settings</Link>
-              </div>
+              <Nav />
             </div>
           </nav>
         )}
