@@ -8,7 +8,6 @@ import type {
   DebtPayment,
   Investment,
   InvestmentEntry,
-  InvestmentPlanRow,
   MoneySource,
   Phase,
   Entry,
@@ -28,7 +27,6 @@ export default async function DashboardPage() {
     { data: debtsData },
     { data: debtPaymentsData },
     { data: moneyData },
-    { data: planData },
   ] = await Promise.all([
     supabase.from("phases").select("*").order("start_date", { ascending: false }),
     supabase.from("cash_balances").select("*"),
@@ -37,7 +35,6 @@ export default async function DashboardPage() {
     supabase.from("debts").select("*"),
     supabase.from("debt_payments").select("*"),
     supabase.from("money_sources").select("*"),
-    supabase.from("investment_plan").select("*").order("display_order", { ascending: true }),
   ]);
 
   const phases = (phasesData ?? []) as Phase[];
@@ -143,9 +140,9 @@ export default async function DashboardPage() {
   const monthStart = currentMonthStartISO();
   const phase_income_past   = incomes.filter((e) => e.date <  monthStart).reduce((a, r) => a + Number(r.amount), 0);
   const phase_expense_past  = expenses.filter((e) => e.date <  monthStart).reduce((a, r) => a + Number(r.amount), 0);
-  const phase_expense_curr  = expenses.filter((e) => e.date >= monthStart).reduce((a, r) => a + Number(r.amount), 0);
   const avgIncome = phase_income_past / months_for_avg;
   const avgPastExpense = phase_expense_past / months_for_avg;
+  const avgSavings = avgIncome - avgPastExpense;
   const savingsRate = avgIncome > 0 ? (avgIncome - avgPastExpense) / avgIncome : null;
 
   // Debt-to-asset ratio (informational, alongside debt pending)
@@ -184,10 +181,6 @@ export default async function DashboardPage() {
     inhandSalary !== null && inhandSalary > 0 && monthlyInvestable !== null
       ? monthlyInvestable / inhandSalary
       : null;
-
-  // Target investment allocation — from investment_plan table.
-  const plan = (planData ?? []) as InvestmentPlanRow[];
-  const allocation = plan.map((r) => ({ name: r.name, pct: Number(r.percentage) / 100 }));
 
   const oldestCashUpdate =
     cash.length > 0
@@ -261,8 +254,8 @@ export default async function DashboardPage() {
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
           <Row label="Inhand salary"             value={inhandSalary !== null ? fmt(inhandSalary) : "—"} />
           <Row label="Avg monthly income"        value={showAverages ? fmt(avgIncome)         : "—"} />
-          <Row label="Past avg monthly expense"  value={showAverages ? fmt(avgPastExpense)    : "—"} />
-          <Row label="Current month expense"     value={fmt(phase_expense_curr)} />
+          <Row label="Avg monthly expense"       value={showAverages ? fmt(avgPastExpense)    : "—"} />
+          <Row label="Avg monthly savings"       value={showAverages ? fmt(avgSavings)        : "—"} />
           <Row label="Total EMI"                 value={fmt(totalEmi)} />
           <Row
             label="Monthly investable"
@@ -280,28 +273,6 @@ export default async function DashboardPage() {
           />
         </div>
       </section>
-
-      {allocation.length > 0 && (
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-sm font-medium text-zinc-500">Investment plan</h2>
-          <span className="text-xs text-zinc-400">SIP: {monthlyInvestable !== null ? fmt(monthlyInvestable) : "—"}/mo</span>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-          {allocation.map((a) => (
-            <Row
-              key={a.name}
-              label={`${a.name} (${(a.pct * 100).toFixed(a.pct * 100 % 1 === 0 ? 0 : 1)}%)`}
-              value={
-                monthlyInvestable !== null && monthlyInvestable > 0
-                  ? fmt(monthlyInvestable * a.pct)
-                  : "—"
-              }
-            />
-          ))}
-        </div>
-      </section>
-      )}
     </div>
   );
 }
