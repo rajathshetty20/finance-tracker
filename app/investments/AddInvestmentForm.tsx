@@ -9,7 +9,7 @@ function todayISO() {
   return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
-export default function AddInvestmentForm() {
+export default function AddInvestmentForm({ assetClasses }: { assetClasses: string[] }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
@@ -35,10 +35,16 @@ export default function AddInvestmentForm() {
           className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
         />
         <input
-          name="kind"
-          placeholder="Kind (e.g. MF, Stock, FD) — optional"
+          name="asset_class"
+          list="asset-class-options"
+          placeholder="Asset class (e.g. Equity, Fixed income)"
           className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
         />
+        <datalist id="asset-class-options">
+          {assetClasses.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
       </div>
       <p className="text-xs text-zinc-500">
         First contribution — the historical cost basis (use current value if unknown):

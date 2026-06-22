@@ -77,18 +77,34 @@ create index if not exists incomes_user_phase_date
 
 
 -- ============================================================
+-- asset_classes
+-- Controlled vocabulary for what an investment IS (equity, fixed income, ...),
+-- carrying the appreciation assumption used by goal projections.
+-- expected_return is an annual % (e.g. 12 = 12% p.a.), not a decimal.
+-- ============================================================
+create table if not exists public.asset_classes (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users on delete cascade,
+  name             text not null,
+  expected_return  numeric not null default 0,
+  created_at       timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+
+-- ============================================================
 -- investments
 -- ============================================================
 create table if not exists public.investments (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null references auth.users on delete cascade,
-  name        text not null,
-  kind        text,
-  status      text not null default 'open' check (status in ('open', 'closed')),
-  opened_on   date not null,
-  closed_on   date,
-  notes       text,
-  created_at  timestamptz not null default now(),
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users on delete cascade,
+  name            text not null,
+  asset_class_id  uuid references public.asset_classes on delete restrict,
+  status          text not null default 'open' check (status in ('open', 'closed')),
+  opened_on       date not null,
+  closed_on       date,
+  notes           text,
+  created_at      timestamptz not null default now(),
   check (status = 'open' or closed_on is not null)
 );
 
@@ -184,8 +200,51 @@ create table if not exists public.money_sources (
 
 
 -- ============================================================
+-- goals  (goal-based investing — a pure planning overlay)
+-- created_at is the inflation anchor; present_cost is in today's money, inflated
+-- to end_date to get the corpus actually needed. inflation_rate is an annual %.
+-- priority: ascending = filled first by the runtime waterfall (need not be unique).
+-- ============================================================
+create table if not exists public.goals (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users on delete cascade,
+  name            text not null,
+  description     text,
+  end_date        date not null,
+  present_cost    numeric not null check (present_cost > 0),
+  inflation_rate  numeric not null default 0,
+  priority        int not null default 0,
+  status          text not null default 'active' check (status in ('active', 'achieved', 'archived')),
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists goals_user_priority on public.goals (user_id, priority);
+
+
+-- ============================================================
+-- goal_allocations  (glide-path breakpoints)
+-- One row per (goal, asset_class, months_before_end milestone). The app
+-- interpolates linearly between milestones; target_pct sums to 100 per milestone.
+-- ============================================================
+create table if not exists public.goal_allocations (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references auth.users on delete cascade,
+  goal_id           uuid not null references public.goals        on delete cascade,
+  asset_class_id    uuid not null references public.asset_classes on delete restrict,
+  months_before_end int not null check (months_before_end >= 0),
+  target_pct        numeric not null check (target_pct >= 0 and target_pct <= 100),
+  unique (goal_id, asset_class_id, months_before_end)
+);
+
+create index if not exists goal_allocations_goal on public.goal_allocations (goal_id);
+
+
+-- ============================================================
 -- Grants
 -- ============================================================
+grant select, insert, update, delete on public.asset_classes      to authenticated;
+grant select, insert, update, delete on public.goals              to authenticated;
+grant select, insert, update, delete on public.goal_allocations   to authenticated;
 grant select, insert, update, delete on public.phases             to authenticated;
 grant select, insert, update, delete on public.categories         to authenticated;
 grant select, insert, update, delete on public.expenses           to authenticated;
@@ -201,6 +260,9 @@ grant select, insert, update, delete on public.money_sources      to authenticat
 -- ============================================================
 -- RLS (owner-only on every table)
 -- ============================================================
+alter table public.asset_classes      enable row level security;
+alter table public.goals              enable row level security;
+alter table public.goal_allocations   enable row level security;
 alter table public.phases             enable row level security;
 alter table public.categories         enable row level security;
 alter table public.expenses           enable row level security;
@@ -211,6 +273,18 @@ alter table public.debts              enable row level security;
 alter table public.debt_payments      enable row level security;
 alter table public.cash_balances      enable row level security;
 alter table public.money_sources      enable row level security;
+
+drop policy if exists "asset_classes are owner-only" on public.asset_classes;
+create policy "asset_classes are owner-only" on public.asset_classes
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "goals are owner-only" on public.goals;
+create policy "goals are owner-only" on public.goals
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "goal_allocations are owner-only" on public.goal_allocations;
+create policy "goal_allocations are owner-only" on public.goal_allocations
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "phases are owner-only" on public.phases;
 create policy "phases are owner-only" on public.phases

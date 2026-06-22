@@ -68,11 +68,19 @@ export type MoneySource = {
   created_at: string;
 };
 
+export type AssetClass = {
+  id: string;
+  user_id: string;
+  name: string;
+  expected_return: number; // annual %, e.g. 12 = 12% p.a.
+  created_at: string;
+};
+
 export type Investment = {
   id: string;
   user_id: string;
   name: string;
-  kind: string | null;
+  asset_class_id: string | null;
   status: "open" | "closed";
   opened_on: string;
   closed_on: string | null;
@@ -93,6 +101,34 @@ export type InvestmentEntry = {
   total_value_after: number;
   note: string | null;
   created_at: string;
+};
+
+export const GoalStatuses = ["active", "achieved", "archived"] as const;
+export type GoalStatus = (typeof GoalStatuses)[number];
+
+export type Goal = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  end_date: string;
+  present_cost: number;
+  inflation_rate: number; // annual %, e.g. 6 = 6% p.a.
+  priority: number; // ascending = filled first
+  status: GoalStatus;
+  created_at: string;
+};
+
+// One glide-path breakpoint: at `months_before_end` months remaining, this
+// asset class should be `target_pct`% of the goal's corpus.
+export type GoalAllocation = {
+  id: string;
+  user_id: string;
+  goal_id: string;
+  asset_class_id: string;
+  months_before_end: number;
+  target_pct: number;
+  created_at?: string;
 };
 
 export type Debt = {

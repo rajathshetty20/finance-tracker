@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Investment, InvestmentEntry } from "@/lib/types";
+import type { AssetClass, Investment, InvestmentEntry } from "@/lib/types";
 import { xirr, formatXirr, type CashFlow } from "@/lib/xirr";
 import { seriesForInvestment } from "@/lib/investmentSeries";
 import AddEntryForm from "./AddEntryForm";
 import CloseForm from "./CloseForm";
+import AssetClassPicker from "./AssetClassPicker";
 import InvestmentChart from "../InvestmentChart";
 
 function todayISO() {
@@ -18,7 +19,7 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: inv }, { data: entriesData }] = await Promise.all([
+  const [{ data: inv }, { data: entriesData }, { data: classesData }] = await Promise.all([
     supabase.from("investments").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("investment_entries")
@@ -26,11 +27,15 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
       .eq("investment_id", id)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false }),
+    supabase.from("asset_classes").select("*").order("name", { ascending: true }),
   ]);
 
   if (!inv) notFound();
   const investment = inv as Investment;
   const entries = (entriesData ?? []) as InvestmentEntry[];
+  const assetClasses = (classesData ?? []) as AssetClass[];
+  const assetClassName =
+    assetClasses.find((c) => c.id === investment.asset_class_id)?.name ?? "—";
 
   const book = entries.reduce((a, e) => {
     if (e.entry_type === "contribution") return a + Number(e.amount);
@@ -70,7 +75,12 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
             </span>
           )}
         </div>
-        <p className="text-sm text-zinc-500">{investment.kind ?? "—"} · opened {investment.opened_on}</p>
+        <p className="text-sm text-zinc-500">{assetClassName} · opened {investment.opened_on}</p>
+        <AssetClassPicker
+          investmentId={investment.id}
+          current={assetClassName}
+          options={assetClasses.map((c) => c.name)}
+        />
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">

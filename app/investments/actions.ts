@@ -4,9 +4,36 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { InvestmentEntryType } from "@/lib/types";
 
+/**
+ * Resolve a free-typed asset-class name to an asset_classes row id, creating it
+ * if new. Returns null for a blank name. Keeps the old "type a kind" UX while
+ * normalizing into the controlled asset_classes vocabulary.
+ */
+async function resolveAssetClassId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  rawName: string,
+): Promise<string | null> {
+  const name = rawName.trim();
+  if (!name) return null;
+  const { data: existing } = await supabase
+    .from("asset_classes")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("name", name)
+    .maybeSingle();
+  if (existing) return existing.id;
+  const { data: created } = await supabase
+    .from("asset_classes")
+    .insert({ user_id: userId, name })
+    .select("id")
+    .single();
+  return created?.id ?? null;
+}
+
 export async function createInvestment(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const kind = (String(formData.get("kind") ?? "").trim() || null) as string | null;
+  const assetClassName = String(formData.get("asset_class") ?? "");
   const date = String(formData.get("date") ?? "").trim();
   const amount = Number(formData.get("amount"));
   const total_value = Number(formData.get("total_value"));
@@ -20,12 +47,14 @@ export async function createInvestment(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
 
+  const asset_class_id = await resolveAssetClassId(supabase, user.id, assetClassName);
+
   const { data: inv, error: invErr } = await supabase
     .from("investments")
     .insert({
       user_id: user.id,
       name,
-      kind,
+      asset_class_id,
       status: "open",
       opened_on: date,
     })
@@ -47,6 +76,30 @@ export async function createInvestment(formData: FormData) {
   }
 
   revalidatePath("/investments");
+  return { ok: true };
+}
+
+export async function updateInvestmentAssetClass(formData: FormData) {
+  const investment_id = String(formData.get("investment_id") ?? "");
+  const assetClassName = String(formData.get("asset_class") ?? "");
+  if (!investment_id) return { error: "Missing investment." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  const asset_class_id = await resolveAssetClassId(supabase, user.id, assetClassName);
+  const { error } = await supabase
+    .from("investments")
+    .update({ asset_class_id })
+    .eq("id", investment_id);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/investments/${investment_id}`);
+  revalidatePath("/investments");
+  revalidatePath("/goals");
   return { ok: true };
 }
 

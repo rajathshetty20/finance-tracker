@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { Investment, InvestmentEntry } from "@/lib/types";
+import type { AssetClass, Investment, InvestmentEntry } from "@/lib/types";
 import { xirr, formatXirr, type CashFlow } from "@/lib/xirr";
 import AddInvestmentForm from "./AddInvestmentForm";
 import AllocationPie from "./AllocationPie";
@@ -44,12 +44,15 @@ function flowsFor(inv: Investment, entries: InvestmentEntry[]): CashFlow[] {
 export default async function InvestmentsPage() {
   const supabase = await createClient();
 
-  const [{ data: invsData }, { data: entriesData }] = await Promise.all([
+  const [{ data: invsData }, { data: entriesData }, { data: classesData }] = await Promise.all([
     supabase.from("investments").select("*").order("created_at", { ascending: false }),
     supabase.from("investment_entries").select("*"),
+    supabase.from("asset_classes").select("*").order("name", { ascending: true }),
   ]);
   const invs = (invsData ?? []) as Investment[];
   const allEntries = (entriesData ?? []) as InvestmentEntry[];
+  const assetClasses = (classesData ?? []) as AssetClass[];
+  const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
 
   const byInvId = new Map<string, InvestmentEntry[]>();
   for (const inv of invs) byInvId.set(inv.id, []);
@@ -144,7 +147,7 @@ export default async function InvestmentsPage() {
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="mb-3 text-sm font-medium text-zinc-500">Add investment</h2>
-        <AddInvestmentForm />
+        <AddInvestmentForm assetClasses={assetClasses.map((c) => c.name)} />
       </section>
 
       {open.length > 0 && (
@@ -162,7 +165,7 @@ export default async function InvestmentsPage() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-medium">{inv.name}</div>
-                        <div className="text-xs text-zinc-500">{inv.kind ?? "—"} · opened {inv.opened_on}</div>
+                        <div className="text-xs text-zinc-500">{classNameById.get(inv.asset_class_id ?? "") ?? "—"} · opened {inv.opened_on}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm tabular-nums">₹{market.toLocaleString("en-IN")}</div>
