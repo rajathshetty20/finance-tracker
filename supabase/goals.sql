@@ -61,7 +61,7 @@ end $$;
 -- separate start_date. present_cost is the cost in today's money; the corpus
 -- actually needed at end_date is present_cost inflated over (created_at -> end_date).
 -- inflation_rate is an annual % (e.g. 6 = 6% p.a.).
--- priority: ascending = filled first by the runtime waterfall. Need not be unique.
+-- The runtime waterfall fills goals by how soon they're due (nearest end_date first).
 -- ============================================================
 create table if not exists public.goals (
   id              uuid primary key default gen_random_uuid(),
@@ -71,12 +71,11 @@ create table if not exists public.goals (
   end_date        date not null,
   present_cost    numeric not null check (present_cost > 0),
   inflation_rate  numeric not null default 0,
-  priority        int not null default 0,
   status          text not null default 'active' check (status in ('active', 'achieved', 'archived')),
   created_at      timestamptz not null default now()
 );
 
-create index if not exists goals_user_priority on public.goals (user_id, priority);
+create index if not exists goals_user_end_date on public.goals (user_id, end_date);
 
 
 -- ============================================================

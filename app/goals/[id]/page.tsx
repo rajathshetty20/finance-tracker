@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { AssetClass, Goal, GoalAllocation, Investment, InvestmentEntry } from "@/lib/types";
-import { analyzeGoals, plannedSeries, poolByAssetClass } from "@/lib/goals";
+import { analyzeGoals, monthsBetween, plannedSeries, poolByAssetClass } from "@/lib/goals";
 import { fmtINR, todayISO } from "@/lib/dates";
 import GlidePathEditor from "./GlidePathEditor";
 import GoalActions from "./GoalActions";
@@ -19,7 +19,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     { data: invsData },
     { data: entriesData },
   ] = await Promise.all([
-    supabase.from("goals").select("*").order("priority", { ascending: true }),
+    supabase.from("goals").select("*").order("end_date", { ascending: true }),
     supabase.from("goal_allocations").select("*"),
     supabase.from("asset_classes").select("*").order("name", { ascending: true }),
     supabase.from("investments").select("*"),
@@ -54,7 +54,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   const pool = poolByAssetClass(invs, entriesByInv);
   const today = todayISO();
 
-  // Run the full waterfall so this goal's attributed corpus reflects priority sharing.
+  // Run the full waterfall so this goal's attributed corpus reflects the shared pool.
   const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today);
   const analysis = analyses.find((a) => a.goal.id === goal.id);
 
@@ -92,9 +92,6 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           ← Goals
         </Link>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 tabular-nums dark:bg-zinc-800">
-            P{goal.priority}
-          </span>
           <h1 className="text-2xl font-semibold">{goal.name}</h1>
           {goal.status !== "active" && (
             <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
@@ -116,7 +113,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         <Stat label="Years left" value={years} />
         <Stat
           label="Required / month"
-          value={analysis?.requiredMonthly ? fmtINR(analysis.requiredMonthly) : "—"}
+          value={analysis && Math.round(analysis.requiredMonthly) > 0 ? fmtINR(analysis.requiredMonthly) : "—"}
           tone={analysis && analysis.onTrack ? "pos" : analysis && analysis.projection.hasPlan ? "neg" : undefined}
         />
       </section>
@@ -132,7 +129,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
       {rows.length > 0 && (
         <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Allocation right now (shared pool by priority)</h2>
+          <h2 className="mb-1 text-sm font-medium text-zinc-500">Allocation right now (shared pool, soonest-due goals first)</h2>
           <p className="mb-2 text-xs text-zinc-500">
             Suggested ₹/mo is this year&apos;s amount — contributions are assumed to step up 10%
             each year from here.
@@ -172,8 +169,8 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="mb-1 text-sm font-medium text-zinc-500">Glide path</h2>
         <p className="mb-3 text-xs text-zinc-500">
-          Target allocation at each milestone (years before the goal date). Columns must sum to 100%.
-          Between milestones the allocation glides linearly.
+          Target allocation at each milestone (years before the goal date). Each milestone must sum
+          to 100%. Between milestones the allocation glides linearly.
         </p>
         {assetClasses.length === 0 ? (
           <p className="text-sm text-zinc-500">
@@ -184,7 +181,12 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
             page first.
           </p>
         ) : (
-          <GlidePathEditor goalId={goal.id} assetClasses={assetClasses} existing={myAllocs} />
+          <GlidePathEditor
+            goalId={goal.id}
+            assetClasses={assetClasses}
+            existing={myAllocs}
+            horizonYears={Math.max(1, Math.round(monthsBetween(goal.created_at.slice(0, 10), goal.end_date) / 12))}
+          />
         )}
       </section>
 

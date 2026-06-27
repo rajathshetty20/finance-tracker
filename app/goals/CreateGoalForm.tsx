@@ -28,7 +28,7 @@ export default function CreateGoalForm() {
         <input name="name" required placeholder="Goal name (e.g. Home down payment)" className={inputCls} />
         <input name="description" placeholder="Description (optional)" className={inputCls} />
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs text-zinc-500">
           Target date
           <input type="date" name="end_date" required className={inputCls} />
@@ -40,10 +40,6 @@ export default function CreateGoalForm() {
         <label className="flex flex-col gap-1 text-xs text-zinc-500">
           Inflation (% p.a.)
           <input name="inflation_rate" type="number" step="0.1" min="0" defaultValue="6" className={inputCls} />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
-          Priority (lower first)
-          <input name="priority" type="number" step="1" placeholder="auto" className={inputCls} />
         </label>
       </div>
       <button

@@ -24,7 +24,7 @@ export default async function GoalsPage() {
     { data: invsData },
     { data: entriesData },
   ] = await Promise.all([
-    supabase.from("goals").select("*").order("priority", { ascending: true }),
+    supabase.from("goals").select("*").order("end_date", { ascending: true }),
     supabase.from("goal_allocations").select("*"),
     supabase.from("asset_classes").select("*").order("name", { ascending: true }),
     supabase.from("investments").select("*"),
@@ -100,8 +100,8 @@ export default async function GoalsPage() {
         <h1 className="text-2xl font-semibold">Goals</h1>
         <p className="text-sm text-zinc-500">
           Each goal needs a corpus by its date. Your investments sit in one pool, split by asset
-          class, and are shared across goals by priority. Goals are a planning overlay — they never
-          touch cash or net worth.
+          class, and are shared across goals by how soon they&apos;re due. Goals are a planning
+          overlay — they never touch cash or net worth.
         </p>
       </header>
 
@@ -225,9 +225,6 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 tabular-nums dark:bg-zinc-800">
-              P{goal.priority}
-            </span>
             <span className="truncate text-sm font-medium">{goal.name}</span>
           </div>
           <div className="mt-0.5 text-xs text-zinc-500">
@@ -262,7 +259,7 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
           {fmtINR(a.attributed)} / {fmtINR(projection.targetCorpus)}
         </span>
         <span>
-          {requiredMonthly > 0 ? (
+          {Math.round(requiredMonthly) > 0 ? (
             <>invest {fmtINR(requiredMonthly)}/mo</>
           ) : projection.hasPlan ? (
             <span className="text-emerald-700 dark:text-emerald-400">fully funded</span>

@@ -7,8 +7,8 @@
 //   - the per-asset-class holding the goal needs RIGHT NOW.
 //
 // Investments are NOT owned by goals. They sit in one pool, classified by asset
-// class. `runWaterfall` distributes that pool across goals by priority
-// (ascending = filled first); surplus in a class goes to the lowest-priority
+// class. `runWaterfall` distributes that pool across goals by how soon they're
+// due (nearest end-date filled first); surplus in a class goes to the furthest
 // goal that targets it. A goal is on track only if every class need is filled.
 
 import type { AssetClass, Goal, GoalAllocation, Investment, InvestmentEntry } from "./types";
@@ -333,7 +333,7 @@ export function plannedSeries(
 
 export type WaterfallGoal = {
   goalId: string;
-  priority: number;
+  monthsRemaining: number; // now → end_date; ascending (soonest due) is filled first
   needByClass: Map<string, number>; // on-track holding needed now, per class
   capByClass: Map<string, number>; // corpus per class beyond which the goal is fully funded
 };
@@ -354,11 +354,11 @@ export type WaterfallResult = {
 };
 
 /**
- * Distribute the pooled market value (per asset class) across goals by priority
- * (lower number first), in two passes:
+ * Distribute the pooled market value (per asset class) across goals by how soon
+ * they're due (fewest months remaining first), in two passes:
  *   1. on-track: fill each goal's need-now;
- *   2. surplus: top each goal up toward its funded cap (higher priority first),
- *      so spare money funds the most important goals before lesser ones.
+ *   2. surplus: top each goal up toward its funded cap (soonest-due first),
+ *      so spare money funds the most imminent goals before later ones.
  * Anything left in a class after that — including the whole pool of a class no
  * goal targets — is reported as unallocated surplus, never forced onto a goal.
  */
@@ -367,7 +367,7 @@ export function runWaterfall(
   poolByClass: Map<string, number>,
 ): WaterfallResult {
   const ordered = [...goals].sort(
-    (a, b) => a.priority - b.priority || (a.goalId < b.goalId ? -1 : 1),
+    (a, b) => a.monthsRemaining - b.monthsRemaining || (a.goalId < b.goalId ? -1 : 1),
   );
 
   const result = new Map<string, GoalFill>();
@@ -406,7 +406,7 @@ export function runWaterfall(
       fill.totalNeed += need;
     }
 
-    // Pass 1 — on-track: fill need-now by priority.
+    // Pass 1 — on-track: fill need-now, soonest-due goal first.
     for (const g of targeting) {
       const bc = result.get(g.goalId)!.byClass.get(cls)!;
       const take = Math.min(remaining, bc.need);
@@ -419,7 +419,7 @@ export function runWaterfall(
       if (bc.shortfall > 1e-6) result.get(g.goalId)!.onTrack = false;
     }
 
-    // Pass 2 — surplus toward funded cap, highest priority first.
+    // Pass 2 — surplus toward funded cap, soonest-due goal first.
     for (const g of targeting) {
       if (remaining <= 1e-6) break;
       const bc = result.get(g.goalId)!.byClass.get(cls)!;
@@ -485,7 +485,7 @@ export function analyzeGoals(
       for (const [cls, frac] of p.targetAllocNow) capByClass.set(cls, p.fundedCorpus * frac);
       return {
         goalId: g.id,
-        priority: g.priority,
+        monthsRemaining: p.monthsRemaining,
         needByClass: p.targetHoldingNow,
         capByClass,
       };

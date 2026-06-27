@@ -114,7 +114,6 @@ export type Goal = {
   end_date: string;
   present_cost: number;
   inflation_rate: number; // annual %, e.g. 6 = 6% p.a.
-  priority: number; // ascending = filled first
   status: GoalStatus;
   created_at: string;
 };

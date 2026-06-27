@@ -14,7 +14,6 @@ export async function createGoal(formData: FormData) {
   const end_date = String(formData.get("end_date") ?? "").trim();
   const present_cost = Number(formData.get("present_cost"));
   const inflation_rate = Number(formData.get("inflation_rate"));
-  const priorityRaw = formData.get("priority");
 
   if (!name || !end_date || !Number.isFinite(present_cost) || present_cost <= 0) {
     return { error: "Name, target date, and a positive present cost are required." };
@@ -29,22 +28,9 @@ export async function createGoal(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
 
-  // Auto-assign next priority (append to the end) when not supplied.
-  let priority = Number(priorityRaw);
-  if (!Number.isFinite(priority) || priorityRaw === null || priorityRaw === "") {
-    const { data: max } = await supabase
-      .from("goals")
-      .select("priority")
-      .eq("user_id", user.id)
-      .order("priority", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    priority = (max?.priority ?? -1) + 1;
-  }
-
   const { data: goal, error } = await supabase
     .from("goals")
-    .insert({ user_id: user.id, name, description, end_date, present_cost, inflation_rate, priority })
+    .insert({ user_id: user.id, name, description, end_date, present_cost, inflation_rate })
     .select("id")
     .single();
   if (error || !goal) return { error: error?.message ?? "Insert failed." };
@@ -60,7 +46,6 @@ export async function updateGoal(formData: FormData) {
   const end_date = String(formData.get("end_date") ?? "").trim();
   const present_cost = Number(formData.get("present_cost"));
   const inflation_rate = Number(formData.get("inflation_rate"));
-  const priority = Number(formData.get("priority"));
 
   if (!id || !name || !end_date || !Number.isFinite(present_cost) || present_cost <= 0) {
     return { error: "Name, target date, and a positive present cost are required." };
@@ -78,7 +63,6 @@ export async function updateGoal(formData: FormData) {
       end_date,
       present_cost,
       inflation_rate,
-      priority: Number.isFinite(priority) ? priority : 0,
     })
     .eq("id", id);
   if (error) return { error: error.message };

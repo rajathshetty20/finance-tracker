@@ -59,7 +59,7 @@ export default function GoalActions({ goal }: { goal: Goal }) {
             <input name="name" defaultValue={goal.name} required placeholder="Name" className={inputCls} />
             <input name="description" defaultValue={goal.description ?? ""} placeholder="Description" className={inputCls} />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs text-zinc-500">
               Target date
               <input type="date" name="end_date" defaultValue={goal.end_date} required className={inputCls} />
@@ -71,10 +71,6 @@ export default function GoalActions({ goal }: { goal: Goal }) {
             <label className="flex flex-col gap-1 text-xs text-zinc-500">
               Inflation (% p.a.)
               <input name="inflation_rate" type="number" step="0.1" min="0" defaultValue={String(goal.inflation_rate)} className={inputCls} />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
-              Priority
-              <input name="priority" type="number" step="1" defaultValue={String(goal.priority)} className={inputCls} />
             </label>
           </div>
           <div className="flex items-center gap-3">

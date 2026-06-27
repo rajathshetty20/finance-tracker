@@ -1,64 +1,255 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { AssetClass, GoalAllocation } from "@/lib/types";
 import { saveGlidePath, type GlideRow } from "../actions";
 
-type Milestone = { years: string; pct: Record<string, string> };
+// A glide path is a shape over time. We render it as a full-height stacked area
+// (today on the left, the goal date on the right). Only the asset classes this
+// goal uses are shown as bands; dragging a boundary between two bands reallocates
+// between just those two, so every column always sums to 100%. Classes are added
+// or removed from the goal via the chips above the chart.
 
-const cellCls =
-  "w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm tabular-nums outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100";
+type Milestone = { id: string; years: number; pct: number[] }; // pct aligned to `active`
+type Plan = { active: string[]; milestones: Milestone[] }; // active = class ids, in assetClasses order
+type Drag = { type: "band"; id: string; b: number } | { type: "time"; id: string };
 
-function initMilestones(existing: GoalAllocation[]): Milestone[] {
-  const byMonths = new Map<number, Record<string, string>>();
-  for (const a of existing) {
-    const rec = byMonths.get(a.months_before_end) ?? {};
-    rec[a.asset_class_id] = String(Number(a.target_pct));
-    byMonths.set(a.months_before_end, rec);
-  }
-  const out = [...byMonths.entries()]
-    .sort((a, b) => b[0] - a[0]) // furthest milestone first
-    .map(([months, pct]) => ({ years: String(months / 12), pct }));
-  return out.length > 0 ? out : [{ years: "", pct: {} }];
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#84cc16", "#ec4899"];
+const H = 240;
+const PAD = { top: 16, right: 16, bottom: 30, left: 16 };
+
+let _seq = 0;
+const nextId = () => `m${_seq++}`;
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
+/** Round weights to integer percentages summing to exactly 100 (largest-remainder). */
+function toHundred(weights: number[]): number[] {
+  const sum = weights.reduce((s, w) => s + w, 0);
+  if (sum <= 0) return weights.map(() => 0);
+  const exact = weights.map((w) => (w / sum) * 100);
+  const base = exact.map(Math.floor);
+  const left = 100 - base.reduce((s, b) => s + b, 0);
+  const order = exact.map((e, i) => ({ i, rem: e - Math.floor(e) })).sort((a, b) => b.rem - a.rem);
+  for (let j = 0; j < left && j < order.length; j++) base[order[j].i]++;
+  return base;
 }
+
+/** Nearest month to `target` not already used by another milestone (within [0, maxM]). */
+function nearestFreeMonth(target: number, used: Set<number>, maxM: number): number | null {
+  const t = clamp(Math.round(target), 0, maxM);
+  if (!used.has(t)) return t;
+  for (let d = 1; d <= maxM; d++) {
+    if (t - d >= 0 && !used.has(t - d)) return t - d;
+    if (t + d <= maxM && !used.has(t + d)) return t + d;
+  }
+  return null;
+}
+
+const cumulative = (pct: number[]) => {
+  const out: number[] = [];
+  let s = 0;
+  for (const v of pct) {
+    s += v;
+    out.push(s);
+  }
+  return out;
+};
 
 export default function GlidePathEditor({
   goalId,
   assetClasses,
   existing,
+  horizonYears,
 }: {
   goalId: string;
   assetClasses: AssetClass[];
   existing: GoalAllocation[];
+  horizonYears: number;
 }) {
-  const [milestones, setMilestones] = useState<Milestone[]>(() => initMilestones(existing));
+  const horizon = Math.max(1, horizonYears);
+  const colorOf = (id: string) => COLORS[Math.max(0, assetClasses.findIndex((c) => c.id === id)) % COLORS.length];
+  const nameOf = (id: string) => assetClasses.find((c) => c.id === id)?.name ?? "—";
+
+  function init(): Plan {
+    const byMonths = new Map<number, Map<string, number>>();
+    for (const a of existing) {
+      const map = byMonths.get(a.months_before_end) ?? new Map<string, number>();
+      map.set(a.asset_class_id, Number(a.target_pct));
+      byMonths.set(a.months_before_end, map);
+    }
+
+    if (byMonths.size === 0) {
+      // No plan yet: default to an aggressive→conservative glide across all classes,
+      // ranked by expected return (highest = most aggressive).
+      const active = assetClasses.map((c) => c.id);
+      const ranked = assetClasses
+        .map((c) => ({ id: c.id, ret: Number(c.expected_return) }))
+        .sort((a, b) => b.ret - a.ret);
+      const aligned = (byRank: number[]): number[] => {
+        const r = toHundred(byRank);
+        const pct = new Array(active.length).fill(0);
+        ranked.forEach((rk, k) => (pct[active.indexOf(rk.id)] = r[k]));
+        return pct;
+      };
+      const farY = Math.max(2, horizon);
+      if (active.length <= 1) return { active, milestones: [{ id: nextId(), years: farY, pct: [100] }] };
+      return {
+        active,
+        milestones: [
+          { id: nextId(), years: farY, pct: aligned(ranked.map((_, k) => active.length - k)) },
+          { id: nextId(), years: 1, pct: aligned(ranked.map((_, k) => k + 1)) },
+        ],
+      };
+    }
+
+    const used = new Set<string>();
+    for (const map of byMonths.values()) for (const [id, v] of map) if (v > 0) used.add(id);
+    const active = assetClasses.filter((c) => used.has(c.id)).map((c) => c.id);
+    const milestones = [...byMonths.entries()]
+      .map(([months, map]) => ({
+        id: nextId(),
+        years: months / 12,
+        pct: toHundred(active.map((id) => map.get(id) ?? 0)),
+      }))
+      .sort((a, b) => b.years - a.years);
+    return { active, milestones };
+  }
+
+  const [plan, setPlan] = useState<Plan>(init);
+  const { active, milestones } = plan;
+  const na = active.length;
+
+  const [drag, setDrag] = useState<Drag | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function setYears(mi: number, years: string) {
-    setMilestones((ms) => ms.map((m, i) => (i === mi ? { ...m, years } : m)));
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [w, setW] = useState(0);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  const maxMonths = Math.round(horizon * 12);
+  const plotW = w - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+  const xForYears = (y: number) => PAD.left + (1 - clamp(y, 0, horizon) / horizon) * plotW;
+  const yForCum = (c: number) => PAD.top + (1 - clamp(c, 0, 100) / 100) * plotH;
+  const yearsForX = (clientX: number) => {
+    const rect = svgRef.current!.getBoundingClientRect();
+    return clamp((1 - (clientX - rect.left - PAD.left) / plotW) * horizon, 0, horizon);
+  };
+
+  const setMs = (fn: (ms: Milestone[]) => Milestone[]) => setPlan((p) => ({ ...p, milestones: fn(p.milestones) }));
+  function touch() {
     setSaved(false);
+    setError(null);
   }
 
-  function setPct(mi: number, classId: string, value: string) {
-    setMilestones((ms) =>
-      ms.map((m, i) => (i === mi ? { ...m, pct: { ...m.pct, [classId]: value } } : m)),
-    );
-    setSaved(false);
+  function toggleClass(id: string) {
+    setPlan((p) => {
+      const on = p.active.includes(id);
+      if (on && p.active.length <= 1) return p; // keep at least one class
+      const nextActive = on
+        ? p.active.filter((x) => x !== id)
+        : assetClasses.filter((c) => p.active.includes(c.id) || c.id === id).map((c) => c.id);
+      const milestones = p.milestones.map((m) => {
+        const byId = new Map(p.active.map((cid, i) => [cid, m.pct[i]]));
+        const raw = nextActive.map((cid) => byId.get(cid) ?? 0);
+        // Removing a weighted class leaves the rest short of 100 — renormalize.
+        return { ...m, pct: on ? toHundred(raw) : raw };
+      });
+      return { active: nextActive, milestones };
+    });
+    touch();
   }
 
-  function addMilestone() {
-    setMilestones((ms) => [...ms, { years: "", pct: {} }]);
+  function startDrag(e: React.PointerEvent, d: Drag) {
+    e.preventDefault();
+    e.stopPropagation();
+    svgRef.current?.setPointerCapture(e.pointerId);
+    setDrag(d);
   }
 
-  function removeMilestone(mi: number) {
-    setMilestones((ms) => ms.filter((_, i) => i !== mi));
-    setSaved(false);
+  function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!drag) return;
+    const rect = svgRef.current!.getBoundingClientRect();
+    if (drag.type === "band") {
+      const cum = clamp((1 - (e.clientY - rect.top - PAD.top) / plotH) * 100, 0, 100);
+      setMs((ms) =>
+        ms.map((m) => {
+          if (m.id !== drag.id) return m;
+          const b = drag.b;
+          const lower = m.pct.slice(0, b).reduce((s, v) => s + v, 0);
+          const upper = lower + m.pct[b] + m.pct[b + 1];
+          const nc = clamp(cum, lower, upper);
+          const pct = [...m.pct];
+          pct[b] = nc - lower;
+          pct[b + 1] = upper - nc;
+          return { ...m, pct };
+        }),
+      );
+    } else {
+      const targetM = Math.round(yearsForX(e.clientX) * 12);
+      setMs((ms) => {
+        const ordered = [...ms].sort((a, b) => b.years - a.years);
+        const i = ordered.findIndex((m) => m.id === drag.id);
+        // Stay at least one whole month clear of either neighbour so no two
+        // milestones ever round to the same months_before_end.
+        const hiM = i > 0 ? Math.round(ordered[i - 1].years * 12) - 1 : maxMonths;
+        const loM = i < ordered.length - 1 ? Math.round(ordered[i + 1].years * 12) + 1 : 0;
+        const months = loM > hiM ? Math.round(ordered[i].years * 12) : clamp(targetM, loM, hiM);
+        return ms.map((m) => (m.id === drag.id ? { ...m, years: months / 12 } : m));
+      });
+    }
+    touch();
   }
 
-  function colSum(m: Milestone): number {
-    return assetClasses.reduce((s, c) => s + (Number(m.pct[c.id]) || 0), 0);
+  function endDrag(e: React.PointerEvent) {
+    if (!drag) return;
+    try {
+      svgRef.current?.releasePointerCapture(e.pointerId);
+    } catch {}
+    setDrag(null);
+  }
+
+  function interpAt(y0: number): number[] {
+    const ordered = [...milestones].sort((a, b) => b.years - a.years);
+    if (y0 >= ordered[0].years) return [...ordered[0].pct];
+    const last = ordered[ordered.length - 1];
+    if (y0 <= last.years) return [...last.pct];
+    for (let i = 0; i < ordered.length - 1; i++) {
+      const a = ordered[i];
+      const b = ordered[i + 1];
+      if (y0 <= a.years && y0 >= b.years) {
+        const t = (a.years - y0) / (a.years - b.years || 1);
+        return a.pct.map((v, k) => v * (1 - t) + b.pct[k] * t);
+      }
+    }
+    return [...last.pct];
+  }
+
+  function onDoubleClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (w <= 0) return;
+    const used = new Set(milestones.map((m) => Math.round(m.years * 12)));
+    const months = nearestFreeMonth(yearsForX(e.clientX) * 12, used, maxMonths);
+    if (months == null) return; // every month already taken
+    const yy = months / 12;
+    const pct = interpAt(yy);
+    setMs((ms) => [...ms, { id: nextId(), years: yy, pct }]);
+    touch();
+  }
+
+  function removeMilestone(id: string) {
+    setMs((ms) => (ms.length > 1 ? ms.filter((m) => m.id !== id) : ms));
+    touch();
   }
 
   function onSave() {
@@ -66,13 +257,12 @@ export default function GlidePathEditor({
     setSaved(false);
     const rows: GlideRow[] = [];
     for (const m of milestones) {
-      const years = Number(m.years);
-      if (!Number.isFinite(years) || years < 0) continue;
-      const months = Math.round(years * 12);
-      for (const c of assetClasses) {
-        const pct = Number(m.pct[c.id]) || 0;
-        if (pct > 0) rows.push({ asset_class_id: c.id, months_before_end: months, target_pct: pct });
-      }
+      if (!Number.isFinite(m.years) || m.years < 0) continue;
+      const months = Math.round(m.years * 12);
+      const ints = toHundred(m.pct);
+      active.forEach((id, i) => {
+        if (ints[i] > 0) rows.push({ asset_class_id: id, months_before_end: months, target_pct: ints[i] });
+      });
     }
     startTransition(async () => {
       const res = await saveGlidePath(goalId, rows);
@@ -81,98 +271,141 @@ export default function GlidePathEditor({
     });
   }
 
+  const ordered = [...milestones].sort((a, b) => b.years - a.years);
+  const yearLabel = (y: number) => (Number.isInteger(y) ? `${y}y` : `${y.toFixed(1)}y`);
+
+  // Band polygons: extend the first/last column flat to the chart edges (the
+  // engine holds allocation flat past the outermost milestones).
+  const cols =
+    w > 0 && ordered.length > 0
+      ? [
+          { x: xForYears(horizon), cum: cumulative(ordered[0].pct) },
+          ...ordered.map((m) => ({ x: xForYears(m.years), cum: cumulative(m.pct) })),
+          { x: xForYears(0), cum: cumulative(ordered[ordered.length - 1].pct) },
+        ]
+      : [];
+
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto">
-        <table className="text-sm">
-          <thead>
-            <tr>
-              <th className="px-2 py-1 text-left text-xs font-medium text-zinc-500">Years before goal →</th>
-              {milestones.map((m, mi) => (
-                <th key={mi} className="px-2 py-1">
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      value={m.years}
-                      onChange={(e) => setYears(mi, e.target.value)}
-                      placeholder="yrs"
-                      className={`${cellCls} text-center`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeMilestone(mi)}
-                      className="text-xs text-zinc-400 hover:text-red-600"
-                      title="Remove milestone"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {assetClasses.map((c) => (
-              <tr key={c.id}>
-                <td className="px-2 py-1 text-zinc-600 dark:text-zinc-400">{c.name}</td>
-                {milestones.map((m, mi) => (
-                  <td key={mi} className="px-2 py-1">
-                    <input
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      value={m.pct[c.id] ?? ""}
-                      onChange={(e) => setPct(mi, c.id, e.target.value)}
-                      placeholder="0"
-                      className={cellCls}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-            <tr>
-              <td className="px-2 py-1 text-xs font-medium text-zinc-500">Sum</td>
-              {milestones.map((m, mi) => {
-                const sum = colSum(m);
-                const ok = Math.abs(sum - 100) <= 0.5;
-                return (
-                  <td
-                    key={mi}
-                    className={`px-2 py-1 text-right text-xs font-medium tabular-nums ${
-                      ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    {sum.toFixed(0)}%
-                  </td>
-                );
-              })}
-            </tr>
-          </tbody>
-        </table>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {assetClasses.map((c) => {
+          const on = active.includes(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => toggleClass(c.id)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
+                on
+                  ? "border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
+                  : "border-dashed border-zinc-200 text-zinc-400 hover:text-zinc-600 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+              }`}
+              title={on ? "Remove from this goal" : "Add to this goal"}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-sm"
+                style={on ? { backgroundColor: colorOf(c.id) } : { boxShadow: "inset 0 0 0 1px currentColor" }}
+              />
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
+
+      <div ref={wrapRef} className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        {w > 0 && (
+          <svg
+            ref={svgRef}
+            width={w}
+            height={H}
+            style={{ touchAction: "none", display: "block", userSelect: "none" }}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            onDoubleClick={onDoubleClick}
+          >
+            {/* bands */}
+            {active.map((id, k) => {
+              const top = cols.map((col) => `${col.x},${yForCum(col.cum[k])}`);
+              const bottom = [...cols].reverse().map((col) => `${col.x},${yForCum(k > 0 ? col.cum[k - 1] : 0)}`);
+              return (
+                <polygon
+                  key={id}
+                  points={[...top, ...bottom].join(" ")}
+                  fill={colorOf(id)}
+                  fillOpacity={0.85}
+                  stroke="white"
+                  strokeOpacity={0.6}
+                  strokeWidth={0.5}
+                />
+              );
+            })}
+
+            {/* x-axis baseline */}
+            <line x1={PAD.left} y1={H - PAD.bottom} x2={w - PAD.right} y2={H - PAD.bottom} stroke="rgb(212 212 216)" strokeWidth={1} />
+            <text x={PAD.left} y={H - 8} fontSize={10} fill="rgb(113 113 122)">today</text>
+            <text x={w - PAD.right} y={H - 8} fontSize={10} fill="rgb(113 113 122)" textAnchor="end">goal date</text>
+
+            {/* per-milestone guides, handles, time control, remove */}
+            {ordered.map((m) => {
+              const x = xForYears(m.years);
+              const cum = cumulative(m.pct);
+              return (
+                <g key={m.id}>
+                  <line x1={x} y1={PAD.top} x2={x} y2={H - PAD.bottom} stroke="rgb(161 161 170)" strokeOpacity={0.5} strokeDasharray="2 3" />
+                  {/* boundary handles between consecutive bands */}
+                  {active.slice(0, -1).map((_, b) => {
+                    const hy = yForCum(cum[b]);
+                    return (
+                      <g key={b} style={{ cursor: "ns-resize" }} onPointerDown={(e) => startDrag(e, { type: "band", id: m.id, b })}>
+                        <circle cx={x} cy={hy} r={13} fill="transparent" />
+                        <circle cx={x} cy={hy} r={5.5} fill="white" stroke="rgb(63 63 70)" strokeWidth={1.5} />
+                      </g>
+                    );
+                  })}
+                  {/* time handle on the axis */}
+                  <g style={{ cursor: "ew-resize" }} onPointerDown={(e) => startDrag(e, { type: "time", id: m.id })}>
+                    <circle cx={x} cy={H - PAD.bottom} r={11} fill="transparent" />
+                    <circle cx={x} cy={H - PAD.bottom} r={4} fill="rgb(63 63 70)" />
+                  </g>
+                  <text x={x} y={H - PAD.bottom + 16} fontSize={10} fill="rgb(113 113 122)" textAnchor="middle">{yearLabel(m.years)}</text>
+                  {/* remove */}
+                  {milestones.length > 1 && (
+                    <g style={{ cursor: "pointer" }} onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); removeMilestone(m.id); }}>
+                      <circle cx={x} cy={9} r={7} fill="white" stroke="rgb(212 212 216)" />
+                      <text x={x} y={12.5} fontSize={9} fill="rgb(113 113 122)" textAnchor="middle">✕</text>
+                    </g>
+                  )}
+                  {/* live readout while dragging this milestone's band */}
+                  {drag?.type === "band" && drag.id === m.id && na > 1 && (() => {
+                    const b = drag.b;
+                    const ty = yForCum(cum[b]);
+                    const flip = x > PAD.left + plotW * 0.6;
+                    return (
+                      <text x={flip ? x - 10 : x + 10} y={ty - 6} fontSize={10} fill="rgb(39 39 42)" textAnchor={flip ? "end" : "start"}>
+                        {nameOf(active[b])} {Math.round(m.pct[b])}% · {nameOf(active[b + 1])} {Math.round(m.pct[b + 1])}%
+                      </text>
+                    );
+                  })()}
+                </g>
+              );
+            })}
+          </svg>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={addMilestone}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          + Milestone
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={pending}
-          className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-        >
+        <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white">
           {pending ? "Saving..." : "Save plan"}
         </button>
         {saved && <span className="text-xs text-emerald-700 dark:text-emerald-400">Saved.</span>}
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
+      <p className="text-xs text-zinc-500">
+        Tap a class to add or remove it from this goal. Drag a dot up/down to shift the split at a
+        milestone; drag the marker on the axis to move it in time. Double-click the chart to add a
+        milestone, ✕ to remove. The column always totals 100%.
+      </p>
     </div>
   );
 }
