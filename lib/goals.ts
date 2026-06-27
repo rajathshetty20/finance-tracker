@@ -13,6 +13,16 @@
 
 import type { AssetClass, Goal, GoalAllocation, Investment, InvestmentEntry } from "./types";
 
+// Format a remaining duration in months as "years and months". Under a year we
+// show only months (e.g. "8m"); otherwise years + months ("1y 4m", "2y").
+export function formatMonthsLeft(monthsRemaining: number): string {
+  const m = Math.max(0, Math.round(monthsRemaining));
+  if (m < 12) return `${m}m`;
+  const years = Math.floor(m / 12);
+  const months = m % 12;
+  return months === 0 ? `${years}y` : `${years}y ${months}m`;
+}
+
 // ---------------------------------------------------------------------------
 // Investment pool
 // ---------------------------------------------------------------------------

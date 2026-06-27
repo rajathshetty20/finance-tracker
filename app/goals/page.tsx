@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { AssetClass, Goal, GoalAllocation, Investment, InvestmentEntry } from "@/lib/types";
-import { analyzeGoals, poolByAssetClass, type GoalAnalysis } from "@/lib/goals";
+import { analyzeGoals, formatMonthsLeft, poolByAssetClass, type GoalAnalysis } from "@/lib/goals";
 import { fmtINR, todayISO } from "@/lib/dates";
 import CreateGoalForm from "./CreateGoalForm";
 import AssetClassesEditor from "./AssetClassesEditor";
@@ -73,14 +73,14 @@ export default async function GoalsPage() {
   // keep the per-goal contributions so the breakdown shows what each amount is for.
   const monthlyByClass = new Map<
     string,
-    { total: number; byGoal: { name: string; amt: number; yearsLeft: number }[] }
+    { total: number; byGoal: { name: string; amt: number; monthsLeft: number }[] }
   >();
   for (const a of analyses) {
     for (const [cls, amt] of a.requiredByClass) {
       if (amt <= 0.5) continue;
       const e = monthlyByClass.get(cls) ?? { total: 0, byGoal: [] };
       e.total += amt;
-      e.byGoal.push({ name: a.goal.name, amt, yearsLeft: a.projection.monthsRemaining / 12 });
+      e.byGoal.push({ name: a.goal.name, amt, monthsLeft: a.projection.monthsRemaining });
       monthlyByClass.set(cls, e);
     }
   }
@@ -135,7 +135,7 @@ export default async function GoalsPage() {
                     {r.byGoal.map((g) => (
                       <span key={g.name} className="tabular-nums">
                         {g.name} {fmtINR(g.amt)}{" "}
-                        <span className="text-zinc-400">({g.yearsLeft.toFixed(1)}y left)</span>
+                        <span className="text-zinc-400">({formatMonthsLeft(g.monthsLeft)} left)</span>
                       </span>
                     ))}
                   </div>
@@ -213,7 +213,7 @@ export default async function GoalsPage() {
 
 function GoalCard({ a }: { a: GoalAnalysis }) {
   const { goal, projection, fundedPct, requiredMonthly, onTrack } = a;
-  const years = (projection.monthsRemaining / 12).toFixed(1);
+  const timeLeft = formatMonthsLeft(projection.monthsRemaining);
   const pct = Math.min(100, Math.max(0, fundedPct * 100));
   const noPlan = !projection.hasPlan;
 
@@ -228,7 +228,7 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
             <span className="truncate text-sm font-medium">{goal.name}</span>
           </div>
           <div className="mt-0.5 text-xs text-zinc-500">
-            {goal.end_date} · {years}y left
+            {goal.end_date} · {timeLeft} left
           </div>
         </div>
         {noPlan ? (

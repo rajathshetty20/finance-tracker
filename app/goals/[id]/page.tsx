@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { AssetClass, Goal, GoalAllocation, Investment, InvestmentEntry } from "@/lib/types";
-import { analyzeGoals, monthsBetween, plannedSeries, poolByAssetClass } from "@/lib/goals";
+import { analyzeGoals, formatMonthsLeft, monthsBetween, plannedSeries, poolByAssetClass } from "@/lib/goals";
 import { fmtINR, todayISO } from "@/lib/dates";
 import GlidePathEditor from "./GlidePathEditor";
 import GoalActions from "./GoalActions";
@@ -60,7 +60,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
   const series = goal.status === "active" ? plannedSeries(goal, myAllocs, assetClasses) : [];
 
-  const years = analysis ? (analysis.projection.monthsRemaining / 12).toFixed(1) : "—";
+  const timeLeft = analysis ? formatMonthsLeft(analysis.projection.monthsRemaining) : "—";
   const target = analysis?.projection.targetCorpus ?? 0;
   const attributed = analysis?.attributed ?? 0;
   const fundedPct = analysis ? Math.round(analysis.fundedPct * 100) : 0;
@@ -110,7 +110,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         <Stat label="Target corpus" value={fmtINR(target)} />
         <Stat label="Attributed now" value={fmtINR(attributed)} />
         <Stat label="Funded" value={`${fundedPct}%`} />
-        <Stat label="Years left" value={years} />
+        <Stat label="Time left" value={timeLeft} />
         <Stat
           label="Required / month"
           value={analysis && Math.round(analysis.requiredMonthly) > 0 ? fmtINR(analysis.requiredMonthly) : "—"}
