@@ -16,7 +16,8 @@ type Drag = { type: "band"; id: string; b: number } | { type: "time"; id: string
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#84cc16", "#ec4899"];
 const H = 240;
-const PAD = { top: 16, right: 16, bottom: 30, left: 16 };
+const PAD = { top: 28, right: 16, bottom: 30, left: 34 };
+const GRID = [0, 25, 50, 75, 100];
 
 let _seq = 0;
 const nextId = () => `m${_seq++}`;
@@ -160,11 +161,14 @@ export default function GlidePathEditor({
       const nextActive = on
         ? p.active.filter((x) => x !== id)
         : assetClasses.filter((c) => p.active.includes(c.id) || c.id === id).map((c) => c.id);
+      // A newly-added class comes in at an equal share so it has a visible band
+      // and a grabbable boundary handle; the others scale down proportionally.
+      const share = 100 / nextActive.length;
       const milestones = p.milestones.map((m) => {
         const byId = new Map(p.active.map((cid, i) => [cid, m.pct[i]]));
-        const raw = nextActive.map((cid) => byId.get(cid) ?? 0);
-        // Removing a weighted class leaves the rest short of 100 — renormalize.
-        return { ...m, pct: on ? toHundred(raw) : raw };
+        const raw = nextActive.map((cid) => byId.get(cid) ?? share);
+        // Either way the weights won't sum to 100 anymore — renormalize.
+        return { ...m, pct: toHundred(raw) };
       });
       return { active: nextActive, milestones };
     });
@@ -249,6 +253,16 @@ export default function GlidePathEditor({
 
   function removeMilestone(id: string) {
     setMs((ms) => (ms.length > 1 ? ms.filter((m) => m.id !== id) : ms));
+    touch();
+  }
+
+  function addMilestone() {
+    const used = new Set(milestones.map((m) => Math.round(m.years * 12)));
+    const months = nearestFreeMonth(Math.round((horizon * 12) / 2), used, maxMonths);
+    if (months == null) return; // every month already taken
+    const yy = months / 12;
+    const pct = interpAt(yy);
+    setMs((ms) => [...ms, { id: nextId(), years: yy, pct }]);
     touch();
   }
 
@@ -341,6 +355,19 @@ export default function GlidePathEditor({
               );
             })}
 
+            {/* y-axis % gridlines + labels */}
+            {GRID.map((p) => {
+              const gy = yForCum(p);
+              return (
+                <g key={`grid-${p}`} style={{ pointerEvents: "none" }}>
+                  {p > 0 && p < 100 && (
+                    <line x1={PAD.left} y1={gy} x2={w - PAD.right} y2={gy} stroke="white" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="2 3" />
+                  )}
+                  <text x={PAD.left - 6} y={gy + 3} fontSize={9} fill="rgb(113 113 122)" textAnchor="end">{p}%</text>
+                </g>
+              );
+            })}
+
             {/* x-axis baseline */}
             <line x1={PAD.left} y1={H - PAD.bottom} x2={w - PAD.right} y2={H - PAD.bottom} stroke="rgb(212 212 216)" strokeWidth={1} />
             <text x={PAD.left} y={H - 8} fontSize={10} fill="rgb(113 113 122)">today</text>
@@ -353,12 +380,23 @@ export default function GlidePathEditor({
               return (
                 <g key={m.id}>
                   <line x1={x} y1={PAD.top} x2={x} y2={H - PAD.bottom} stroke="rgb(161 161 170)" strokeOpacity={0.5} strokeDasharray="2 3" />
+                  {/* per-band % labels at this milestone (when the band is tall enough) */}
+                  {active.map((id, k) => {
+                    const yTop = yForCum(cum[k]);
+                    const yBottom = yForCum(k > 0 ? cum[k - 1] : 0);
+                    if (yBottom - yTop < 16) return null;
+                    return (
+                      <text key={`v-${id}`} x={x} y={(yTop + yBottom) / 2 + 3.5} fontSize={10} fontWeight={600} fill="white" textAnchor="middle" style={{ pointerEvents: "none" }}>
+                        {Math.round(m.pct[k])}%
+                      </text>
+                    );
+                  })}
                   {/* boundary handles between consecutive bands */}
                   {active.slice(0, -1).map((_, b) => {
                     const hy = yForCum(cum[b]);
                     return (
                       <g key={b} style={{ cursor: "ns-resize" }} onPointerDown={(e) => startDrag(e, { type: "band", id: m.id, b })}>
-                        <circle cx={x} cy={hy} r={13} fill="transparent" />
+                        <circle cx={x} cy={hy} r={11} fill="transparent" />
                         <circle cx={x} cy={hy} r={5.5} fill="white" stroke="rgb(63 63 70)" strokeWidth={1.5} />
                       </g>
                     );
@@ -398,13 +436,16 @@ export default function GlidePathEditor({
         <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white">
           {pending ? "Saving..." : "Save plan"}
         </button>
+        <button type="button" onClick={addMilestone} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">
+          + Add milestone
+        </button>
         {saved && <span className="text-xs text-emerald-700 dark:text-emerald-400">Saved.</span>}
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
       <p className="text-xs text-zinc-500">
         Tap a class to add or remove it from this goal. Drag a dot up/down to shift the split at a
-        milestone; drag the marker on the axis to move it in time. Double-click the chart to add a
-        milestone, ✕ to remove. The column always totals 100%.
+        milestone; drag the marker on the axis to move it in time. Use “+ Add milestone” (or
+        double-click the chart) to add one, ✕ to remove. The column always totals 100%.
       </p>
     </div>
   );
