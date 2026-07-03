@@ -1,6 +1,7 @@
 "use client";
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { fmtINR } from "@/lib/dates";
 
 const COLORS = [
   "#f59e0b", // amber
@@ -14,10 +15,6 @@ const COLORS = [
   "#6366f1", // indigo
   "#84cc16", // lime
 ];
-
-function fmtINR(n: number): string {
-  return `₹${Math.round(n).toLocaleString("en-IN")}`;
-}
 
 // Mix a hex color toward white by `t` (0 = base, 1 = white).
 function lighten(hex: string, t: number): string {
@@ -122,8 +119,8 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
                   return [`${fmtINR(value)} (${pct}%)`, label];
                 }}
                 contentStyle={{
-                  backgroundColor: "rgb(255 255 255)",
-                  border: "1px solid rgb(228 228 231)",
+                  backgroundColor: "var(--chart-surface)",
+                  border: "1px solid var(--chart-border)",
                   borderRadius: "8px",
                   fontSize: "12px",
                 }}

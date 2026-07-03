@@ -62,8 +62,8 @@ function ChartTooltip({
   return (
     <div
       style={{
-        backgroundColor: "rgb(255 255 255)",
-        border: "1px solid rgb(228 228 231)",
+        backgroundColor: "var(--chart-surface)",
+        border: "1px solid var(--chart-border)",
         borderRadius: "8px",
         fontSize: "12px",
         padding: "8px 10px",
@@ -127,7 +127,7 @@ export default function InvestmentChart({
                 <stop offset="100%" stopColor="rgb(16 185 129)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgb(228 228 231)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis
               dataKey="ts"
               type="number"
@@ -135,15 +135,15 @@ export default function InvestmentChart({
               domain={["dataMin", "dataMax"]}
               tickFormatter={fmtDateShort}
               tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
-              axisLine={{ stroke: "rgb(228 228 231)" }}
-              tickLine={{ stroke: "rgb(228 228 231)" }}
+              axisLine={{ stroke: "var(--chart-grid)" }}
+              tickLine={{ stroke: "var(--chart-grid)" }}
               minTickGap={40}
             />
             <YAxis
               tickFormatter={fmtCompact}
               tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
-              axisLine={{ stroke: "rgb(228 228 231)" }}
-              tickLine={{ stroke: "rgb(228 228 231)" }}
+              axisLine={{ stroke: "var(--chart-grid)" }}
+              tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
               domain={["auto", "auto"]}
             />
@@ -162,7 +162,7 @@ export default function InvestmentChart({
               strokeWidth={2.5}
               fill="url(#marketGradient)"
               dot={singlePoint ? { r: 4, fill: "rgb(16 185 129)" } : false}
-              activeDot={{ r: 5, fill: "rgb(16 185 129)", stroke: "white", strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: "rgb(16 185 129)", stroke: "var(--chart-surface)", strokeWidth: 2 }}
             />
             <Line
               type="monotone"

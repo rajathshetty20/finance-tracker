@@ -43,7 +43,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   const planned = Number(payload.find((p) => p.dataKey === "planned")?.value ?? 0);
   const target = Number(payload.find((p) => p.dataKey === "target")?.value ?? 0);
   return (
-    <div style={{ backgroundColor: "rgb(255 255 255)", border: "1px solid rgb(228 228 231)", borderRadius: 8, fontSize: 12, padding: "8px 10px", lineHeight: 1.5 }}>
+    <div style={{ backgroundColor: "var(--chart-surface)", border: "1px solid var(--chart-border)", borderRadius: 8, fontSize: 12, padding: "8px 10px", lineHeight: 1.5 }}>
       <div style={{ color: "rgb(113 113 122)" }}>{fmtDate(Number(label))}</div>
       <div style={{ marginTop: 4 }}>
         <span style={{ color: "rgb(113 113 122)" }}>Planned </span>
@@ -83,7 +83,7 @@ export default function GoalChart({
                 <stop offset="100%" stopColor="rgb(59 130 246)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgb(228 228 231)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis
               dataKey="ts"
               type="number"
@@ -91,15 +91,15 @@ export default function GoalChart({
               domain={["dataMin", "dataMax"]}
               tickFormatter={fmtDate}
               tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
-              axisLine={{ stroke: "rgb(228 228 231)" }}
-              tickLine={{ stroke: "rgb(228 228 231)" }}
+              axisLine={{ stroke: "var(--chart-grid)" }}
+              tickLine={{ stroke: "var(--chart-grid)" }}
               minTickGap={50}
             />
             <YAxis
               tickFormatter={fmtCompact}
               tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
-              axisLine={{ stroke: "rgb(228 228 231)" }}
-              tickLine={{ stroke: "rgb(228 228 231)" }}
+              axisLine={{ stroke: "var(--chart-grid)" }}
+              tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
               domain={["auto", "auto"]}
             />
@@ -112,7 +112,7 @@ export default function GoalChart({
               y={attributed}
               r={5}
               fill="rgb(16 185 129)"
-              stroke="white"
+              stroke="var(--chart-surface)"
               strokeWidth={2}
               label={{ value: "now", position: "top", fontSize: 11, fill: "rgb(16 185 129)" }}
             />

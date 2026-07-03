@@ -200,7 +200,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white p-6 dark:border-emerald-950/50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900">
+      <section
+        className={`rounded-xl border p-6 ${
+          NW < 0
+            ? "border-red-100 bg-gradient-to-br from-red-50 via-white to-white dark:border-red-950/50 dark:from-red-950/30 dark:via-zinc-900 dark:to-zinc-900"
+            : "border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white dark:border-emerald-950/50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900"
+        }`}
+      >
         <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Net worth</div>
         <div className={`mt-2 text-5xl font-semibold tabular-nums ${NW < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
           {fmt(NW)}

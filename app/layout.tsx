@@ -39,7 +39,7 @@ export default async function RootLayout({
       <body className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         {user && (
           <nav className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="mx-auto max-w-5xl px-4 py-3">
+            <div className="mx-auto max-w-3xl px-4 py-3">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="whitespace-nowrap font-semibold">Finance tracker</span>
