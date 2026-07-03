@@ -237,7 +237,7 @@ function Stat({
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="text-xs text-zinc-500">{label}</div>
-      <div className={`mt-1 text-lg font-semibold tabular-nums ${toneCls}`}>{value}</div>
+      <div className={`mt-1 whitespace-nowrap text-lg font-semibold tabular-nums ${toneCls}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-zinc-500 tabular-nums">{sub}</div>}
     </div>
   );

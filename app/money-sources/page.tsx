@@ -35,12 +35,11 @@ export default async function MoneySourcesPage() {
         <section>
           <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
             {rows.map((r) => <MoneySourceRow key={r.id} row={r} />)}
-            <li className="flex items-center justify-between gap-3 bg-zinc-50 px-4 py-2 text-sm font-medium dark:bg-zinc-900/40">
+            <li className="flex items-baseline justify-between gap-3 bg-zinc-50 px-4 py-2.5 text-sm font-medium dark:bg-zinc-900/40">
               <span>Total</span>
               <span className={`tabular-nums ${total < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
                 {total < 0 ? "−" : ""}₹{Math.abs(total).toLocaleString("en-IN")}
               </span>
-              <span className="w-[88px]" />
             </li>
           </ul>
         </section>

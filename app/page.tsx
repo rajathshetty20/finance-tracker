@@ -300,7 +300,7 @@ function BreakdownStat({
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className={`mt-1 text-base font-semibold tabular-nums ${tone === "neg" ? "text-red-600 dark:text-red-400" : ""}`}>
+      <div className={`mt-1 whitespace-nowrap text-base font-semibold tabular-nums ${tone === "neg" ? "text-red-600 dark:text-red-400" : ""}`}>
         {value}
       </div>
     </div>

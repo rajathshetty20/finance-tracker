@@ -16,6 +16,14 @@ const COLORS = [
   "#84cc16", // lime
 ];
 
+function fmtCompact(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1e7) return `₹${(a / 1e7).toFixed(a >= 1e8 ? 0 : 1)}Cr`;
+  if (a >= 1e5) return `₹${(a / 1e5).toFixed(a >= 1e6 ? 0 : 1)}L`;
+  if (a >= 1e3) return `₹${(a / 1e3).toFixed(0)}k`;
+  return `₹${a.toFixed(0)}`;
+}
+
 // Mix a hex color toward white by `t` (0 = base, 1 = white).
 function lighten(hex: string, t: number): string {
   const n = parseInt(hex.slice(1), 16);
@@ -77,7 +85,11 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
         By current market value. Inner ring: asset class · outer ring: investment.
       </p>
       <div className="mt-3 grid items-center gap-4 sm:grid-cols-[1fr_240px]">
-        <div className="h-64">
+        <div className="relative h-64">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[10px] uppercase tracking-wide text-zinc-400">Total</span>
+            <span className="text-sm font-semibold tabular-nums">{fmtCompact(total)}</span>
+          </div>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -86,8 +98,8 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={30}
-                outerRadius={62}
+                innerRadius={40}
+                outerRadius={64}
                 paddingAngle={1}
                 stroke="none"
               >
@@ -101,7 +113,7 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={68}
+                innerRadius={70}
                 outerRadius={98}
                 paddingAngle={1}
                 stroke="none"
@@ -128,46 +140,20 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <ul className="space-y-2.5 text-sm">
+        <ul className="space-y-2 text-sm">
           {classes.map((c) => {
             const base = classColor.get(c.name)!;
-            const n = c.items.length;
+            const pct = ((c.value / total) * 100).toFixed(1);
             return (
-              <li key={c.name}>
-                <div className="flex items-center justify-between gap-2 font-medium">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="h-3 w-3 shrink-0 rounded-sm"
-                      style={{ backgroundColor: base }}
-                    />
-                    <span className="truncate">{c.name}</span>
-                  </div>
-                  <span className="shrink-0 text-xs text-zinc-500 tabular-nums">
-                    {((c.value / total) * 100).toFixed(1)}%
-                  </span>
+              <li key={c.name} className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: base }} />
+                  <span className="truncate">{c.name}</span>
                 </div>
-                <ul className="mt-1 space-y-1 pl-5">
-                  {c.items.map((it, i) => (
-                    <li
-                      key={it.name}
-                      className="flex items-center justify-between gap-2 text-xs text-zinc-500"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-sm"
-                          style={{
-                            backgroundColor:
-                              n > 1 ? lighten(base, (i / (n - 1)) * 0.55) : base,
-                          }}
-                        />
-                        <span className="truncate">{it.name}</span>
-                      </div>
-                      <span className="shrink-0 tabular-nums">
-                        {((it.value / total) * 100).toFixed(1)}%
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                  <span>{pct}%</span>
+                  <span className="text-xs text-zinc-400">{fmtCompact(c.value)}</span>
+                </div>
               </li>
             );
           })}

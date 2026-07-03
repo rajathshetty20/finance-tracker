@@ -69,26 +69,30 @@ export default function MoneySourceRow({ row }: { row: MoneySource }) {
 
   const sign = Number(row.amount) < 0;
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-2">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="w-20 text-xs text-zinc-500 tabular-nums">{row.date}</span>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${KIND_PILL[row.kind]}`}>
-          {KIND_LABEL[row.kind]}
-        </span>
+    <li className="px-4 py-2.5">
+      <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-sm">{row.name}</span>
+        <span className={`shrink-0 text-sm tabular-nums ${sign ? "text-red-600 dark:text-red-400" : ""}`}>
+          {sign ? "−" : ""}₹{Math.abs(Number(row.amount)).toLocaleString("en-IN")}
+        </span>
       </div>
-      <span className={`text-sm tabular-nums ${sign ? "text-red-600 dark:text-red-400" : ""}`}>
-        {sign ? "−" : ""}₹{Math.abs(Number(row.amount)).toLocaleString("en-IN")}
-      </span>
-      {isManual ? (
-        <div className="flex items-center gap-3 text-xs">
-          <button onClick={() => setEditing(true)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">edit</button>
-          <button onClick={onDelete} disabled={pending} className="text-red-600 disabled:opacity-60 hover:text-red-700">delete</button>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="text-xs text-zinc-500 tabular-nums">{row.date}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${KIND_PILL[row.kind]}`}>
+            {KIND_LABEL[row.kind]}
+          </span>
         </div>
-      ) : (
-        <span className="text-xs text-zinc-400">auto</span>
-      )}
-      {error && <p className="ml-3 text-xs text-red-600">{error}</p>}
+        {isManual ? (
+          <div className="flex shrink-0 items-center gap-3 text-xs">
+            <button onClick={() => setEditing(true)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">edit</button>
+            <button onClick={onDelete} disabled={pending} className="text-red-600 disabled:opacity-60 hover:text-red-700">delete</button>
+          </div>
+        ) : (
+          <span className="shrink-0 text-xs text-zinc-400">auto</span>
+        )}
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </li>
   );
 }
