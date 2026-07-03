@@ -142,6 +142,7 @@ export default async function InvestmentsPage() {
         data={open.map((inv) => ({
           name: inv.name,
           value: marketOf(inv, byInvId.get(inv.id) ?? []),
+          assetClass: classNameById.get(inv.asset_class_id ?? "") ?? "Unclassified",
         }))}
       />
 
