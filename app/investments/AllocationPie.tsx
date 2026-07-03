@@ -140,20 +140,37 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <ul className="space-y-2 text-sm">
+        <ul className="space-y-3 text-sm">
           {classes.map((c) => {
             const base = classColor.get(c.name)!;
-            const pct = ((c.value / total) * 100).toFixed(1);
+            const n = c.items.length;
+            const classPct = ((c.value / total) * 100).toFixed(1);
             return (
-              <li key={c.name} className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: base }} />
-                  <span className="truncate">{c.name}</span>
+              <li key={c.name}>
+                <div className="flex items-center justify-between gap-3 font-medium">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: base }} />
+                    <span className="truncate">{c.name}</span>
+                  </div>
+                  <div className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                    <span>{classPct}%</span>
+                    <span className="text-xs font-normal text-zinc-400">{fmtCompact(c.value)}</span>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-baseline gap-2 tabular-nums">
-                  <span>{pct}%</span>
-                  <span className="text-xs text-zinc-400">{fmtCompact(c.value)}</span>
-                </div>
+                <ul className="mt-1 space-y-0.5 pl-[18px]">
+                  {c.items.map((it, i) => (
+                    <li key={it.name} className="flex items-center justify-between gap-3 text-xs text-zinc-500">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: n > 1 ? lighten(base, (i / (n - 1)) * 0.55) : base }}
+                        />
+                        <span className="truncate">{it.name}</span>
+                      </div>
+                      <span className="shrink-0 tabular-nums">{((it.value / total) * 100).toFixed(1)}%</span>
+                    </li>
+                  ))}
+                </ul>
               </li>
             );
           })}
