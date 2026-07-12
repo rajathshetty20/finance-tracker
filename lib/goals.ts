@@ -236,7 +236,9 @@ export function projectGoal(
   const monthsRemaining = Math.max(0, monthsBetween(nowISO, goal.end_date));
   const target = targetCorpus(goal);
   const glide = buildGlide(allocations);
-  const hasPlan = glide.size > 0 && N > 0;
+  // N === 0 (due at creation, e.g. an emergency fund) is still a valid plan:
+  // there is no accumulation phase — the full target is needed right now.
+  const hasPlan = glide.size > 0;
 
   const monthlyReturns = new Map(
     assetClasses.map((ac) => [ac.id, monthlyRate(Number(ac.expected_return))]),
@@ -248,7 +250,7 @@ export function projectGoal(
   const targetHoldingNow = new Map<string, number>();
   const targetAllocNow = new Map<string, number>();
 
-  if (hasPlan) {
+  if (hasPlan && N > 0) {
     baselineSIP = solveSIP(0, target, N, N, glide, monthlyReturns);
     const path = simulatePath(0, baselineSIP, N, N, glide, monthlyReturns);
     plannedCorpusNow = path[elapsed] ?? 0;
@@ -260,6 +262,15 @@ export function projectGoal(
     for (const [cls, frac] of targetAllocAt(glide, monthsRemaining)) {
       targetAllocNow.set(cls, frac);
       targetHoldingNow.set(cls, plannedCorpusNow * frac);
+    }
+  } else if (hasPlan) {
+    // Due since creation: no SIP path to simulate — the on-track holding is
+    // simply the full target, split by the glide's allocation at 0 months out.
+    plannedCorpusNow = target;
+    fundedCorpus = target;
+    for (const [cls, frac] of targetAllocAt(glide, 0)) {
+      targetAllocNow.set(cls, frac);
+      targetHoldingNow.set(cls, target * frac);
     }
   }
 

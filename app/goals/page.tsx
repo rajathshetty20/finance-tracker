@@ -213,9 +213,12 @@ export default async function GoalsPage() {
 
 function GoalCard({ a }: { a: GoalAnalysis }) {
   const { goal, projection, fundedPct, requiredMonthly, onTrack } = a;
-  const timeLeft = formatMonthsLeft(projection.monthsRemaining);
+  const timeLeft =
+    projection.monthsRemaining === 0 ? "due now" : `${formatMonthsLeft(projection.monthsRemaining)} left`;
   const pct = Math.min(100, Math.max(0, fundedPct * 100));
   const noPlan = !projection.hasPlan;
+  // With no months left the required SIP is 0 even when short — show the gap.
+  const shortNow = Math.max(0, projection.targetCorpus - a.attributed);
 
   return (
     <Link
@@ -228,7 +231,7 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
             <span className="truncate text-sm font-medium">{goal.name}</span>
           </div>
           <div className="mt-0.5 text-xs text-zinc-500">
-            {goal.end_date} · {timeLeft} left
+            {goal.end_date} · {timeLeft}
           </div>
         </div>
         {noPlan ? (
@@ -261,10 +264,12 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
         <span>
           {Math.round(requiredMonthly) > 0 ? (
             <>invest {fmtINR(requiredMonthly)}/mo</>
-          ) : projection.hasPlan ? (
-            <span className="text-emerald-700 dark:text-emerald-400">fully funded</span>
-          ) : (
+          ) : !projection.hasPlan ? (
             "—"
+          ) : shortNow > 0.5 ? (
+            <span className="text-red-600 dark:text-red-400">short {fmtINR(shortNow)}</span>
+          ) : (
+            <span className="text-emerald-700 dark:text-emerald-400">fully funded</span>
           )}
         </span>
       </div>

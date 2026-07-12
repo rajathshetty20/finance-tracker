@@ -60,7 +60,11 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
   const series = goal.status === "active" ? plannedSeries(goal, myAllocs, assetClasses) : [];
 
-  const timeLeft = analysis ? formatMonthsLeft(analysis.projection.monthsRemaining) : "—";
+  const timeLeft = analysis
+    ? analysis.projection.monthsRemaining === 0
+      ? "due now"
+      : formatMonthsLeft(analysis.projection.monthsRemaining)
+    : "—";
   const target = analysis?.projection.targetCorpus ?? 0;
   const attributed = analysis?.attributed ?? 0;
   const fundedPct = analysis ? Math.round(analysis.fundedPct * 100) : 0;
