@@ -217,8 +217,11 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
     projection.monthsRemaining === 0 ? "due now" : `${formatMonthsLeft(projection.monthsRemaining)} left`;
   const pct = Math.min(100, Math.max(0, fundedPct * 100));
   const noPlan = !projection.hasPlan;
-  // With no months left the required SIP is 0 even when short — show the gap.
-  const shortNow = Math.max(0, projection.targetCorpus - a.attributed);
+  // A due goal needs its full target today, but its required SIP is 0 (no
+  // months to invest over) — show the gap instead. Future goals with a 0 SIP
+  // are genuinely fully funded (corpus grows into the target on its own).
+  const shortNow =
+    projection.monthsRemaining === 0 ? Math.max(0, projection.targetCorpus - a.attributed) : 0;
 
   return (
     <Link
