@@ -26,10 +26,12 @@ export function seriesForInvestment(
   if (inv.status === "closed" && inv.closed_on) {
     const closeDate = inv.closed_on;
     const trimmed = points.filter((p) => p.date < closeDate);
-    // Post-close: market=0 (holding is gone); book=realized loss (or 0 if gain).
-    // `book` here is Σcontrib − Σwithdrawals; for a gain close the close-out
-    // withdrawal makes this negative, which we clamp to 0.
-    trimmed.push({ date: closeDate, book: Math.max(0, book), market: 0 });
+    // Post-close the position no longer exists: nothing invested, nothing
+    // held. Realized P&L is reported separately (the "Realized gain" stat),
+    // not carried in the series — carrying losses here (as this used to)
+    // made aggregate book ≠ open cost basis, so market − book matched
+    // neither unrealized nor total P&L.
+    trimmed.push({ date: closeDate, book: 0, market: 0 });
     return trimmed;
   }
   return points;

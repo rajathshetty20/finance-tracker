@@ -90,16 +90,20 @@ function ChartTooltip({
 export default function InvestmentChart({
   data,
   title,
+  headline,
 }: {
   data: Point[];
   title: string;
+  // Overrides the header gain/pct (default: market − book at the last point).
+  // Used by the closed-investment detail view, whose series ends at 0/0.
+  headline?: { gain: number; pct: number };
 }) {
   if (data.length === 0) return null;
 
   const points = data.map((p) => ({ ...p, ts: toTs(p.date) }));
   const last = data[data.length - 1];
-  const gain = last.market - last.book;
-  const pct = last.book !== 0 ? (gain / last.book) * 100 : 0;
+  const gain = headline ? headline.gain : last.market - last.book;
+  const pct = headline ? headline.pct : last.book !== 0 ? (gain / last.book) * 100 : 0;
   const singlePoint = data.length === 1;
 
   return (

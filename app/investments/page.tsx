@@ -23,7 +23,11 @@ function bookOf(entries: InvestmentEntry[]) {
 
 function marketOf(inv: Investment, entries: InvestmentEntry[]) {
   if (inv.status === "closed") return 0;
-  const latest = [...entries].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  // Tie-break same-date entries by created_at, matching lib/investmentSeries.
+  const latest = [...entries].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return a.created_at < b.created_at ? 1 : -1;
+  })[0];
   return latest ? Number(latest.total_value_after) : 0;
 }
 
@@ -72,8 +76,11 @@ export default async function InvestmentsPage() {
   portfolioFlows.sort((a, b) => (a.date < b.date ? -1 : 1));
   const portXirr = xirr(portfolioFlows);
 
-  const totalInvested = invs.reduce(
-    (a, inv) => a + Math.max(0, bookOf(byInvId.get(inv.id) ?? [])),
+  // Cost basis currently deployed: open investments only, so that
+  // Market − Invested = Unrealized gain exactly. Closed investments are
+  // accounted for in "Realized gain".
+  const totalInvested = open.reduce(
+    (a, inv) => a + bookOf(byInvId.get(inv.id) ?? []),
     0,
   );
   const totalMarket = open.reduce(

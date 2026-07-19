@@ -43,6 +43,10 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
     return a;
   }, 0);
 
+  const contributions = entries
+    .filter((e) => e.entry_type === "contribution")
+    .reduce((a, e) => a + Number(e.amount), 0);
+
   const market =
     investment.status === "closed"
       ? 0
@@ -92,6 +96,13 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
       <InvestmentChart
         title="Invested vs market over time"
         data={seriesForInvestment(investment, entries)}
+        headline={
+          investment.status === "closed"
+            ? // Realized gain = Σ withdrawals − Σ contributions = −book;
+              // the series ends at 0/0, so the default headline would be +0.
+              { gain: -book, pct: contributions > 0 ? (-book / contributions) * 100 : 0 }
+            : undefined
+        }
       />
 
       {investment.status === "open" && (
