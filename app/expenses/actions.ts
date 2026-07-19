@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 
 const TABLE = "expenses";
 const ROUTE = "/expenses";
 
 export async function createExpense(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const date = String(formData.get("date") ?? "").trim();
   const category_id = String(formData.get("category_id") ?? "").trim();
   const amount = Number(formData.get("amount"));
@@ -46,6 +48,7 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function updateExpense(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const date = String(formData.get("date") ?? "").trim();
   const category_id = String(formData.get("category_id") ?? "").trim();
@@ -81,6 +84,7 @@ export async function updateExpense(formData: FormData) {
 }
 
 export async function deleteExpense(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing id." };
 

@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createCash(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const name = String(formData.get("name") ?? "").trim();
   const amount = Number(formData.get("amount"));
   if (!name || !Number.isFinite(amount)) {
@@ -28,6 +30,7 @@ export async function createCash(formData: FormData) {
 }
 
 export async function updateCash(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const amount = Number(formData.get("amount"));
@@ -47,6 +50,7 @@ export async function updateCash(formData: FormData) {
 }
 
 export async function deleteCash(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing id." };
 

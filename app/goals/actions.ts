@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 import type { GoalStatus } from "@/lib/types";
 
@@ -9,6 +10,7 @@ import type { GoalStatus } from "@/lib/types";
 // ---------------------------------------------------------------------------
 
 export async function createGoal(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const end_date = String(formData.get("end_date") ?? "").trim();
@@ -40,6 +42,7 @@ export async function createGoal(formData: FormData) {
 }
 
 export async function updateGoal(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -73,6 +76,7 @@ export async function updateGoal(formData: FormData) {
 }
 
 export async function setGoalStatus(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as GoalStatus;
   if (!id || !["active", "achieved", "archived"].includes(status)) {
@@ -87,6 +91,7 @@ export async function setGoalStatus(formData: FormData) {
 }
 
 export async function deleteGoal(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing goal." };
   const supabase = await createClient();
@@ -112,6 +117,7 @@ export type GlideRow = {
  * (months_before_end); each milestone's target_pct must sum to ~100.
  */
 export async function saveGlidePath(goalId: string, rows: GlideRow[]) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   if (!goalId) return { error: "Missing goal." };
 
   const clean = rows.filter(
@@ -164,6 +170,7 @@ export async function saveGlidePath(goalId: string, rows: GlideRow[]) {
 // ---------------------------------------------------------------------------
 
 export async function createAssetClass(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const name = String(formData.get("name") ?? "").trim();
   const expected_return = Number(formData.get("expected_return"));
   if (!name) return { error: "Name is required." };
@@ -188,6 +195,7 @@ export async function createAssetClass(formData: FormData) {
 }
 
 export async function updateAssetClass(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const expected_return = Number(formData.get("expected_return"));
@@ -209,6 +217,7 @@ export async function updateAssetClass(formData: FormData) {
 }
 
 export async function deleteAssetClass(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing asset class." };
   const supabase = await createClient();

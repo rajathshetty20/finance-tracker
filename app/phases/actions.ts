@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 
 function todayISO() {
@@ -17,6 +18,7 @@ function addDaysISO(iso: string, days: number) {
 }
 
 export async function createFirstPhase(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const name = String(formData.get("name") ?? "").trim();
   const start_date = String(formData.get("start_date") ?? "").trim();
   if (!name || !start_date) return { error: "Name and start date are required." };
@@ -47,6 +49,7 @@ export async function createFirstPhase(formData: FormData) {
 }
 
 export async function endAndStartNewPhase(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const new_name = String(formData.get("new_name") ?? "").trim();
   const end_date = String(formData.get("end_date") ?? todayISO()).trim();
   if (!new_name) return { error: "New phase name is required." };
@@ -122,6 +125,7 @@ export async function endAndStartNewPhase(formData: FormData) {
 }
 
 export async function renamePhase(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return { error: "Name is required." };
@@ -136,6 +140,7 @@ export async function renamePhase(formData: FormData) {
 }
 
 export async function editFirstPhaseStartDate(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const id = String(formData.get("id") ?? "");
   const start_date = String(formData.get("start_date") ?? "").trim();
   if (!id || !start_date) return { error: "Start date is required." };

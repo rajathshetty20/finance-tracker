@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 import type { InvestmentEntryType } from "@/lib/types";
 
@@ -32,6 +33,7 @@ async function resolveAssetClassId(
 }
 
 export async function createInvestment(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const name = String(formData.get("name") ?? "").trim();
   const assetClassName = String(formData.get("asset_class") ?? "");
   const date = String(formData.get("date") ?? "").trim();
@@ -80,6 +82,7 @@ export async function createInvestment(formData: FormData) {
 }
 
 export async function updateInvestmentAssetClass(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const investment_id = String(formData.get("investment_id") ?? "");
   const assetClassName = String(formData.get("asset_class") ?? "");
   if (!investment_id) return { error: "Missing investment." };
@@ -104,6 +107,7 @@ export async function updateInvestmentAssetClass(formData: FormData) {
 }
 
 export async function addInvestmentEntry(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const investment_id = String(formData.get("investment_id") ?? "");
   const entry_type = String(formData.get("entry_type") ?? "") as InvestmentEntryType;
   const date = String(formData.get("date") ?? "").trim();
@@ -154,6 +158,7 @@ export async function addInvestmentEntry(formData: FormData) {
 }
 
 export async function closeInvestment(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const investment_id = String(formData.get("investment_id") ?? "");
   const proceeds = Number(formData.get("proceeds"));
   const close_date = String(formData.get("close_date") ?? "").trim();

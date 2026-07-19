@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { isDemoUser } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 import type { Phase } from "@/lib/types";
 import Nav from "./Nav";
@@ -20,6 +21,8 @@ export default async function RootLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const isDemo = isDemoUser(user);
 
   let currentPhase: Phase | null = null;
   if (user) {
@@ -61,6 +64,13 @@ export default async function RootLayout({
               <Nav />
             </div>
           </nav>
+        )}
+        {isDemo && (
+          <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/40">
+            <div className="mx-auto max-w-3xl px-4 py-1.5 text-xs text-amber-800 dark:text-amber-200">
+              Read-only demo — the data is fictional and edits are disabled.
+            </div>
+          </div>
         )}
         <main className="mx-auto w-full max-w-3xl px-4 py-6">{children}</main>
       </body>

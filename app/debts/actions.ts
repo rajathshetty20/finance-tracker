@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createDebt(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const description = String(formData.get("description") ?? "").trim();
   const principal = Number(formData.get("principal"));
   const total_payable = Number(formData.get("total_payable"));
@@ -37,6 +39,7 @@ export async function createDebt(formData: FormData) {
 }
 
 export async function addDebtPayment(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const debt_id = String(formData.get("debt_id") ?? "");
   const date = String(formData.get("date") ?? "").trim();
   const amount = Number(formData.get("amount"));
@@ -76,6 +79,7 @@ export async function addDebtPayment(formData: FormData) {
 }
 
 export async function closeDebt(formData: FormData) {
+  if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const debt_id = String(formData.get("debt_id") ?? "");
   const close_date = String(formData.get("close_date") ?? "").trim();
   if (!debt_id || !close_date) return { error: "Close date is required." };
