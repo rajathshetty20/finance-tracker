@@ -65,18 +65,18 @@ export default async function SettingsPage() {
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-medium">Phases</h2>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-ink-3">
             A phase is a period of life — a job, a sabbatical, whatever marks a meaningful change. Expenses and incomes auto-attach to the phase whose date range contains them.
           </p>
         </div>
         {phases.length === 0 ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <h3 className="mb-3 text-sm font-medium text-zinc-500">Create your first phase</h3>
+          <div className="rounded-xl border border-rule bg-surface p-4">
+            <h3 className="mb-3 text-sm font-medium text-ink-3">Create your first phase</h3>
             <FirstPhaseForm />
           </div>
         ) : (
           <>
-            <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+            <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
               {phases.map((p) => (
                 <PhaseRow
                   key={p.id}
@@ -94,26 +94,26 @@ export default async function SettingsPage() {
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-medium">Categories</h2>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-ink-3">
             Tags for expenses and incomes. A category can&apos;t be deleted while entries reference it.
           </p>
         </div>
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h3 className="text-sm font-medium text-zinc-500">Expense categories</h3>
+        <div className="space-y-3 rounded-xl border border-rule bg-surface p-4">
+          <h3 className="text-sm font-medium text-ink-3">Expense categories</h3>
           <NewCategoryForm kind="expense" />
           {expenseCats.length > 0 && (
-            <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            <ul className="divide-y divide-rule overflow-hidden rounded-md border border-rule">
               {expenseCats.map((c) => (
                 <CategoryRow key={c.id} category={c} />
               ))}
             </ul>
           )}
         </div>
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h3 className="text-sm font-medium text-zinc-500">Income categories</h3>
+        <div className="space-y-3 rounded-xl border border-rule bg-surface p-4">
+          <h3 className="text-sm font-medium text-ink-3">Income categories</h3>
           <NewCategoryForm kind="income" />
           {incomeCats.length > 0 && (
-            <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+            <ul className="divide-y divide-rule overflow-hidden rounded-md border border-rule">
               {incomeCats.map((c) => (
                 <CategoryRow key={c.id} category={c} />
               ))}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Ledger mark: money in over money out, on a baseline.
+       Geometry is defined in app/logoMark.ts — keep this file in sync. -->
+  <rect width="128" height="128" rx="28" fill="#18181b"/>
+  <rect x="26" y="30" width="62" height="16" rx="8" fill="#34d399"/>
+  <rect x="26" y="56" width="38" height="16" rx="8" fill="#fb7185"/>
+  <rect x="26" y="86" width="76" height="10" rx="5" fill="#3f3f46"/>
+</svg>

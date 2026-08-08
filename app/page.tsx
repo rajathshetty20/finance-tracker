@@ -16,6 +16,13 @@ import { todayISO, monthsInRange, daysInRange, currentMonthStartISO, fmtINR as f
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
 
+// Module scope: reading the clock inside the component body counts as
+// calling an impure function during render.
+function daysSince(iso: string | null): number {
+  if (!iso) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
 
@@ -45,13 +52,13 @@ export default async function DashboardPage() {
       <div className="space-y-4">
         <header>
           <h1 className="text-2xl font-semibold">Welcome</h1>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-ink-3">
             Start by creating your first phase.
           </p>
         </header>
         <Link
           href="/settings"
-          className="inline-block rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
           Create your first phase
         </Link>
@@ -187,6 +194,9 @@ export default async function DashboardPage() {
       ? cash.reduce((min, r) => (r.updated_at < min ? r.updated_at : min), cash[0].updated_at)
       : null;
 
+  const oldestCashAgeDays = daysSince(oldestCashUpdate);
+
+
   const nwSeries = buildNetworthSeries({
     invs,
     invEntries,
@@ -203,12 +213,12 @@ export default async function DashboardPage() {
       <section
         className={`rounded-xl border p-6 ${
           NW < 0
-            ? "border-red-100 bg-gradient-to-br from-red-50 via-white to-white dark:border-red-950/50 dark:from-red-950/30 dark:via-zinc-900 dark:to-zinc-900"
-            : "border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white dark:border-emerald-950/50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900"
+            ? "border-down/25 bg-down/[0.06]"
+            : "border-up/25 bg-up/[0.06]"
         }`}
       >
-        <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Net worth</div>
-        <div className={`mt-2 text-5xl font-semibold tabular-nums ${NW < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+        <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">Net worth</div>
+        <div className={`mt-2 text-5xl font-semibold tabular-nums ${NW < 0 ? "text-down" : ""}`}>
           {fmt(NW)}
         </div>
       </section>
@@ -227,9 +237,9 @@ export default async function DashboardPage() {
       <NetworthChart data={nwSeries} />
 
       {Math.abs(cash_discrepancy) >= 0.01 && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-ink-3">
           Cash discrepancy:{" "}
-          <span className="tabular-nums text-amber-700 dark:text-amber-400">{fmt(cash_discrepancy)}</span>
+          <span className="tabular-nums text-warn">{fmt(cash_discrepancy)}</span>
           {" "}—{" "}
           {cash_discrepancy > 0
             ? "cash understated (likely received money not yet recorded)."
@@ -237,25 +247,25 @@ export default async function DashboardPage() {
           {" "}
           <Link href="/cash" className="underline">Sync cash</Link>.
           {oldestCashUpdate && (
-            <span className="ml-1 text-zinc-400">
-              Oldest cash entry updated {Math.max(0, Math.floor((Date.now() - new Date(oldestCashUpdate).getTime()) / 86_400_000))}d ago.
+            <span className="ml-1 text-ink-3">
+              Oldest cash entry updated {oldestCashAgeDays}d ago.
             </span>
           )}
         </p>
       )}
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-sm font-medium text-zinc-500">Current phase</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="text-sm font-medium text-ink-3">Current phase</h2>
         <div className="mt-1">
           <strong>{currentPhase.name}</strong>
-          <span className="ml-2 text-xs text-zinc-500">started {currentPhase.start_date}</span>
+          <span className="ml-2 text-xs text-ink-3">started {currentPhase.start_date}</span>
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-sm font-medium text-zinc-500">
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="text-sm font-medium text-ink-3">
           Cashflows summary
-          {!showAverages && <span className="ml-2 text-xs text-zinc-400">(averages need a completed month)</span>}
+          {!showAverages && <span className="ml-2 text-xs text-ink-3">(averages need a completed month)</span>}
         </h2>
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
           <Row label="Inhand salary"             value={inhandSalary !== null ? fmt(inhandSalary) : "—"} />
@@ -295,12 +305,12 @@ function BreakdownStat({
   tone?: "neg";
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="flex items-center gap-1.5 text-xs text-ink-3">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className={`mt-1 whitespace-nowrap text-base font-semibold tabular-nums ${tone === "neg" ? "text-red-600 dark:text-red-400" : ""}`}>
+      <div className={`mt-1 whitespace-nowrap text-base font-semibold tabular-nums ${tone === "neg" ? "text-down" : ""}`}>
         {value}
       </div>
     </div>
@@ -311,10 +321,10 @@ function Row({ label, value, sub }: { label: string; value: string; sub?: string
   return (
     <div className="flex flex-col">
       <div className="flex justify-between gap-2">
-        <span className="text-zinc-500">{label}</span>
+        <span className="text-ink-3">{label}</span>
         <span className="tabular-nums">{value}</span>
       </div>
-      {sub && <div className="text-right text-[10px] text-zinc-400 tabular-nums">{sub}</div>}
+      {sub && <div className="text-right text-[10px] text-ink-3 tabular-nums">{sub}</div>}
     </div>
   );
 }

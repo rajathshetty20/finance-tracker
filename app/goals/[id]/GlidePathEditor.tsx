@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { AssetClass, GoalAllocation } from "@/lib/types";
 import { saveGlidePath, type GlideRow } from "../actions";
+import { useGuard } from "../../useGuard";
 
 // A glide path is a shape over time. We render it as a full-height stacked area
 // (today on the left, the goal date on the right). Only the asset classes this
@@ -124,6 +125,7 @@ export default function GlidePathEditor({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  const guard = useGuard();
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -278,11 +280,13 @@ export default function GlidePathEditor({
         if (ints[i] > 0) rows.push({ asset_class_id: id, months_before_end: months, target_pct: ints[i] });
       });
     }
-    startTransition(async () => {
+    startTransition(() =>
+      guard(async () => {
       const res = await saveGlidePath(goalId, rows);
       if (res?.error) setError(res.error);
       else setSaved(true);
-    });
+    }),
+    );
   }
 
   const ordered = [...milestones].sort((a, b) => b.years - a.years);
@@ -311,8 +315,8 @@ export default function GlidePathEditor({
               onClick={() => toggleClass(c.id)}
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition ${
                 on
-                  ? "border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-200"
-                  : "border-dashed border-zinc-200 text-zinc-400 hover:text-zinc-600 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  ? "border-rule text-ink"
+                  : "border-dashed border-rule text-ink-3 hover:text-ink-2"
               }`}
               title={on ? "Remove from this goal" : "Add to this goal"}
             >
@@ -326,7 +330,7 @@ export default function GlidePathEditor({
         })}
       </div>
 
-      <div ref={wrapRef} className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div ref={wrapRef} className="rounded-lg border border-rule bg-surface">
         {w > 0 && (
           <svg
             ref={svgRef}
@@ -363,15 +367,15 @@ export default function GlidePathEditor({
                   {p > 0 && p < 100 && (
                     <line x1={PAD.left} y1={gy} x2={w - PAD.right} y2={gy} stroke="white" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="2 3" />
                   )}
-                  <text x={PAD.left - 6} y={gy + 3} fontSize={9} fill="rgb(113 113 122)" textAnchor="end">{p}%</text>
+                  <text x={PAD.left - 6} y={gy + 3} fontSize={9} fill="var(--ink-3)" textAnchor="end">{p}%</text>
                 </g>
               );
             })}
 
             {/* x-axis baseline */}
             <line x1={PAD.left} y1={H - PAD.bottom} x2={w - PAD.right} y2={H - PAD.bottom} stroke="rgb(212 212 216)" strokeWidth={1} />
-            <text x={PAD.left} y={H - 8} fontSize={10} fill="rgb(113 113 122)">today</text>
-            <text x={w - PAD.right} y={H - 8} fontSize={10} fill="rgb(113 113 122)" textAnchor="end">goal date</text>
+            <text x={PAD.left} y={H - 8} fontSize={10} fill="var(--ink-3)">today</text>
+            <text x={w - PAD.right} y={H - 8} fontSize={10} fill="var(--ink-3)" textAnchor="end">goal date</text>
 
             {/* per-milestone guides, handles, time control, remove */}
             {ordered.map((m) => {
@@ -379,7 +383,7 @@ export default function GlidePathEditor({
               const cum = cumulative(m.pct);
               return (
                 <g key={m.id}>
-                  <line x1={x} y1={PAD.top} x2={x} y2={H - PAD.bottom} stroke="rgb(161 161 170)" strokeOpacity={0.5} strokeDasharray="2 3" />
+                  <line x1={x} y1={PAD.top} x2={x} y2={H - PAD.bottom} stroke="var(--ink-3)" strokeOpacity={0.5} strokeDasharray="2 3" />
                   {/* per-band % labels at this milestone (when the band is tall enough) */}
                   {active.map((id, k) => {
                     const yTop = yForCum(cum[k]);
@@ -406,12 +410,12 @@ export default function GlidePathEditor({
                     <circle cx={x} cy={H - PAD.bottom} r={11} fill="transparent" />
                     <circle cx={x} cy={H - PAD.bottom} r={4} fill="rgb(63 63 70)" />
                   </g>
-                  <text x={x} y={H - PAD.bottom + 16} fontSize={10} fill="rgb(113 113 122)" textAnchor="middle">{yearLabel(m.years)}</text>
+                  <text x={x} y={H - PAD.bottom + 16} fontSize={10} fill="var(--ink-3)" textAnchor="middle">{yearLabel(m.years)}</text>
                   {/* remove */}
                   {milestones.length > 1 && (
                     <g style={{ cursor: "pointer" }} onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); removeMilestone(m.id); }}>
                       <circle cx={x} cy={9} r={7} fill="white" stroke="rgb(212 212 216)" />
-                      <text x={x} y={12.5} fontSize={9} fill="rgb(113 113 122)" textAnchor="middle">✕</text>
+                      <text x={x} y={12.5} fontSize={9} fill="var(--ink-3)" textAnchor="middle">✕</text>
                     </g>
                   )}
                   {/* live readout while dragging this milestone's band */}
@@ -433,16 +437,16 @@ export default function GlidePathEditor({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white">
+        <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-ink px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60">
           {pending ? "Saving..." : "Save plan"}
         </button>
-        <button type="button" onClick={addMilestone} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800">
+        <button type="button" onClick={addMilestone} className="rounded-md border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2">
           + Add milestone
         </button>
-        {saved && <span className="text-xs text-emerald-700 dark:text-emerald-400">Saved.</span>}
-        {error && <span className="text-sm text-red-600">{error}</span>}
+        {saved && <span className="text-xs text-up">Saved.</span>}
+        {error && <span className="text-sm text-down">{error}</span>}
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-ink-3">
         Tap a class to add or remove it from this goal. Drag a dot up/down to shift the split at a
         milestone; drag the marker on the axis to move it in time. Use “+ Add milestone” (or
         double-click the chart) to add one, ✕ to remove. The column always totals 100%.

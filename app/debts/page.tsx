@@ -28,7 +28,7 @@ export default async function DebtsPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Debts</h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-3">
           Each debt commits to <code>total_payable − principal</code> as interest upfront. EMIs reduce pending. Closing materializes the realized PnL.
         </p>
       </header>
@@ -38,20 +38,20 @@ export default async function DebtsPage() {
         <Stat label="Total interest committed" value={`₹${totalInterestCommit.toLocaleString("en-IN")}`} />
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-medium text-zinc-500">Add debt</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink-3">Add debt</h2>
         <AddDebtForm />
       </section>
 
       {open.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500">Open</h2>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Open</h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {open.map((d) => (
               <li key={d.id}>
-                <Link href={`/debts/${d.id}`} className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                <Link href={`/debts/${d.id}`} className="block px-4 py-3 hover:bg-surface-2">
                   <div className="text-sm font-medium">{d.description}</div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-ink-3">
                     principal ₹{Number(d.principal).toLocaleString("en-IN")} · started {d.start_date}
                   </div>
                 </Link>
@@ -63,13 +63,13 @@ export default async function DebtsPage() {
 
       {closed.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500">Closed</h2>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Closed</h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {closed.map((d) => (
               <li key={d.id}>
-                <Link href={`/debts/${d.id}`} className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                  <div className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{d.description}</div>
-                  <div className="text-xs text-zinc-500">closed {d.closed_on}</div>
+                <Link href={`/debts/${d.id}`} className="block px-4 py-3 hover:bg-surface-2">
+                  <div className="text-sm font-medium text-ink-2">{d.description}</div>
+                  <div className="text-xs text-ink-3">closed {d.closed_on}</div>
                 </Link>
               </li>
             ))}
@@ -78,7 +78,7 @@ export default async function DebtsPage() {
       )}
 
       {debts.length === 0 && (
-        <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+        <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
           No debts yet.
         </p>
       )}
@@ -88,8 +88,8 @@ export default async function DebtsPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="text-xs text-ink-3">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
     </div>
   );

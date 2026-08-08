@@ -1,33 +1,204 @@
 @import "tailwindcss";
 
-:root {
-  --background: #fafafa;
-  --foreground: #18181b;
-  /* Chart theming (used by Recharts inline styles / SVG strokes). */
-  --chart-surface: #ffffff;
-  --chart-border: #e4e4e7;
-  --chart-grid: #e4e4e7;
-}
+/*
+  "Refined instrument": a ledger you open daily, so it gets out of the way.
+  Cards dissolve into hairline-separated groups, one accent carries every
+  primary state, and the domain colours are identifiers — dots and 2px
+  underlines, never fills.
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  Neutrals take a slight blue bias so they sit with the accent rather than
+  beside it; flat zinc read as unchosen.
+*/
+:root {
+  --ground: #fcfcfd;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --rule: #e6e7ea;
+  --rule-soft: #eff0f2;
+
+  --ink: #16191d;
+  --ink-2: #5b6270;
+  --ink-3: #878e9b;
+
+  --accent: #0f62d6;
+  --accent-ink: #0b4ca8;
+  --accent-soft: #e8f0fd;
+
+  /* Money moves one of two ways. These are status colours, never reused as
+     a series hue, and they always ship beside a sign or a label — green and
+     crimson are the classic red/green confusion on their own. */
+  --up: #047857;
+  --down: #be123c;
+  --warn: #b45309;
+  /* Tinted panels for the same three states. Kept as their own tokens so a
+     success box and an error box are one decision, not a hunt for a shade. */
+  --up-soft: #e7f4ef;
+  --down-soft: #fdeaee;
+  --warn-soft: #fbf0e2;
+
+  /* Domain identifiers, drawn from the validated categorical set below so a
+     colour means one thing across nav, charts and rows. */
+  --income: #047857;
+  --expense: #be123c;
+  --investment: #0369a1;
+  --debt: #ea580c;
+  --cash: #0891b2;
+  --goal: #6d28d9;
+
+  --chart-surface: #ffffff;
+  --chart-border: #e6e7ea;
+  --chart-grid: #e6e7ea;
+  --chart-cursor: rgba(22, 25, 29, 0.04);
+
+  /* Categorical series. Hues are assigned in this fixed order and never
+     cycled, so ADJACENT pairs are what a reader must separate. Validated
+     with the dataviz palette checker — all checks pass in both themes.
+     Re-run it before changing any value or the order. */
+  --cat-1: #0369a1;
+  --cat-2: #b45309;
+  --cat-3: #047857;
+  --cat-4: #6d28d9;
+  --cat-5: #be123c;
+  --cat-6: #0891b2;
+  --cat-7: #ea580c;
+  --cat-8: #9333ea;
+  --cat-other: #878e9b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #09090b;
-    --foreground: #f4f4f5;
-    --chart-surface: #18181b; /* zinc-900 */
-    --chart-border: #3f3f46; /* zinc-700 */
-    --chart-grid: #27272a; /* zinc-800 */
+    --ground: #0b0c0e;
+    --surface: #141619;
+    --surface-2: #1b1e22;
+    --rule: #24272c;
+    --rule-soft: #1c1f23;
+
+    --ink: #e9ebee;
+    --ink-2: #a3aab5;
+    --ink-3: #737b87;
+
+    --accent: #5aa2f5;
+    --accent-ink: #8fc0ff;
+    --accent-soft: #10233d;
+
+    --up: #34d399;
+    --down: #fb7185;
+    --warn: #f0a63a;
+    --up-soft: #0f2a22;
+    --down-soft: #33161d;
+    --warn-soft: #2e2213;
+
+    --income: #34d399;
+    --expense: #fb7185;
+    --investment: #4cabe8;
+    --debt: #f0a63a;
+    --cash: #22b8cf;
+    --goal: #a78bfa;
+
+    --chart-surface: #141619;
+    --chart-border: #24272c;
+    --chart-grid: #24272c;
+    --chart-cursor: rgba(233, 235, 238, 0.06);
+
+    /* Deeper steps than the light set: on a dark surface the brighter values
+       sit above the lightness band and the rose/green adjacency falls below
+       what any secondary encoding can excuse. Validated; re-run the checker. */
+    --cat-1: #3585bd;
+    --cat-2: #bb7f28;
+    --cat-3: #23926d;
+    --cat-4: #7d6bcd;
+    --cat-5: #c85267;
+    --cat-6: #00959f;
+    --cat-7: #bc6634;
+    --cat-8: #8f68c6;
+    --cat-other: #737b87;
   }
 }
 
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-rule: var(--rule);
+  --color-rule-soft: var(--rule-soft);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warn: var(--warn);
+  --color-up-soft: var(--up-soft);
+  --color-down-soft: var(--down-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-investment: var(--investment);
+  --color-debt: var(--debt);
+  --color-cash: var(--cash);
+  --color-goal: var(--goal);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--ground);
+  color: var(--ink);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* iOS Safari zooms the page when a focused field is under 16px and does not
+   zoom back out. select is excluded: it opens a picker wheel, never triggers
+   the zoom, and 16px there oversizes every dropdown. */
+@media (max-width: 767px) {
+  input,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Stops double-tap-to-zoom, which fires on ordinary taps in a dense ledger
+   and strands the page at an arbitrary scale. Pinch-zoom is untouched. */
+html {
+  touch-action: manipulation;
+}
+
+/* Money lines up in columns without being asked. */
+.tnum,
+table,
+input[type="number"],
+input[type="date"],
+input[type="time"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recharts marks its surface focusable; a tap otherwise paints the browser's
+   default focus ring round the whole chart. Keyboard focus still shows. */
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none;
+}
+.recharts-wrapper:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

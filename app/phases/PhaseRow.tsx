@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { renamePhase, editFirstPhaseStartDate } from "./actions";
 import type { Phase } from "@/lib/types";
 import { fmtINR } from "@/lib/dates";
+import { useGuard } from "../useGuard";
 
 export type PhaseStats = {
   avgIncome: number;
@@ -24,6 +25,7 @@ export default function PhaseRow({
   const [editingStart, setEditingStart] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const guard = useGuard();
 
   const isCurrent = phase.end_date === null;
 
@@ -31,22 +33,26 @@ export default function PhaseRow({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
+    startTransition(() =>
+      guard(async () => {
       const res = await renamePhase(fd);
       if (res?.error) setError(res.error);
       else setEditingName(false);
-    });
+    }),
+    );
   }
 
   async function submitStart(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
+    startTransition(() =>
+      guard(async () => {
       const res = await editFirstPhaseStartDate(fd);
       if (res?.error) setError(res.error);
       else setEditingStart(false);
-    });
+    }),
+    );
   }
 
   return (
@@ -61,12 +67,12 @@ export default function PhaseRow({
                 defaultValue={phase.name}
                 required
                 autoFocus
-                className="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+                className="flex-1 rounded-md border border-rule bg-surface px-2 py-1 text-sm outline-none focus:border-ink"
               />
-              <button type="submit" disabled={pending} className="text-xs font-medium text-emerald-700 disabled:opacity-60 dark:text-emerald-400">
+              <button type="submit" disabled={pending} className="text-xs font-medium text-up disabled:opacity-60">
                 Save
               </button>
-              <button type="button" onClick={() => setEditingName(false)} className="text-xs text-zinc-500">
+              <button type="button" onClick={() => setEditingName(false)} className="text-xs text-ink-3">
                 Cancel
               </button>
             </form>
@@ -74,16 +80,16 @@ export default function PhaseRow({
             <div className="flex items-center gap-2">
               <div className="text-sm font-medium">{phase.name}</div>
               {isCurrent && (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                <span className="rounded-full bg-up-soft px-2 py-0.5 text-[10px] font-medium text-up">
                   current
                 </span>
               )}
-              <button onClick={() => setEditingName(true)} className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+              <button onClick={() => setEditingName(true)} className="text-xs text-ink-3 hover:text-ink">
                 rename
               </button>
             </div>
           )}
-          <div className="mt-1 text-xs text-zinc-500 tabular-nums">
+          <div className="mt-1 text-xs text-ink-3 tabular-nums">
             {editingStart ? (
               <form onSubmit={submitStart} className="flex items-center gap-2">
                 <input type="hidden" name="id" value={phase.id} />
@@ -93,12 +99,12 @@ export default function PhaseRow({
                   defaultValue={phase.start_date}
                   required
                   autoFocus
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+                  className="rounded-md border border-rule bg-surface px-2 py-1 text-xs outline-none focus:border-ink"
                 />
-                <button type="submit" disabled={pending} className="text-xs font-medium text-emerald-700 disabled:opacity-60 dark:text-emerald-400">
+                <button type="submit" disabled={pending} className="text-xs font-medium text-up disabled:opacity-60">
                   Save
                 </button>
-                <button type="button" onClick={() => setEditingStart(false)} className="text-xs text-zinc-500">
+                <button type="button" onClick={() => setEditingStart(false)} className="text-xs text-ink-3">
                   Cancel
                 </button>
               </form>
@@ -108,7 +114,7 @@ export default function PhaseRow({
                 {canEditStart && (
                   <button
                     onClick={() => setEditingStart(true)}
-                    className="ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    className="ml-2 text-ink-3 hover:text-ink"
                   >
                     edit start date
                   </button>
@@ -116,9 +122,9 @@ export default function PhaseRow({
               </>
             )}
           </div>
-          {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          {error && <p className="mt-1 text-xs text-down">{error}</p>}
           {stats && (
-            <div className="mt-1 text-xs text-zinc-500 tabular-nums">
+            <div className="mt-1 text-xs text-ink-3 tabular-nums">
               avg income {fmtINR(stats.avgIncome)}/mo · avg expense {fmtINR(stats.avgExpense)}/mo · savings{" "}
               {stats.savingsRatio !== null ? `${(stats.savingsRatio * 100).toFixed(1)}%` : "—"}
             </div>

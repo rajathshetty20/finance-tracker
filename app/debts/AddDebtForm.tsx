@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { createDebt } from "./actions";
+import { useGuard } from "../useGuard";
 
 function todayISO() {
   const d = new Date();
@@ -12,17 +13,20 @@ function todayISO() {
 export default function AddDebtForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const guard = useGuard();
   const formRef = useRef<HTMLFormElement>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
+    startTransition(() =>
+      guard(async () => {
       const res = await createDebt(fd);
       if (res?.error) setError(res.error);
       else formRef.current?.reset();
-    });
+    }),
+    );
   }
 
   return (
@@ -31,7 +35,7 @@ export default function AddDebtForm() {
         name="description"
         required
         placeholder="Description (e.g. HDFC home loan)"
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+        className="w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <input
@@ -39,35 +43,35 @@ export default function AddDebtForm() {
           name="start_date"
           required
           defaultValue={todayISO()}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input
           name="principal"
           type="number"
-          step="0.01"
+          step="any"
           min="0.01"
           required
           placeholder="Principal"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input
           name="total_payable"
           type="number"
-          step="0.01"
+          step="any"
           min="0.01"
           required
           placeholder="Total payable (principal + interest)"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
       </div>
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+        className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
       >
         {pending ? "Creating..." : "Create debt"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-down">{error}</p>}
     </form>
   );
 }

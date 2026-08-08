@@ -117,7 +117,7 @@ export default async function InvestmentsPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Investments</h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-3">
           Closed investments stay listed for lifetime XIRR. Adding an investment creates the first contribution entry.
         </p>
       </header>
@@ -153,15 +153,15 @@ export default async function InvestmentsPage() {
         }))}
       />
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-medium text-zinc-500">Add investment</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink-3">Add investment</h2>
         <AddInvestmentForm assetClasses={assetClasses.map((c) => c.name)} />
       </section>
 
       {open.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500">Open</h2>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Open</h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {open.map((inv) => {
               const entries = byInvId.get(inv.id) ?? [];
               const book = bookOf(entries);
@@ -169,15 +169,15 @@ export default async function InvestmentsPage() {
               const r = xirr(flowsFor(inv, entries));
               return (
                 <li key={inv.id}>
-                  <Link href={`/investments/${inv.id}`} className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <Link href={`/investments/${inv.id}`} className="block px-4 py-3 hover:bg-surface-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-medium">{inv.name}</div>
-                        <div className="text-xs text-zinc-500">{classNameById.get(inv.asset_class_id ?? "") ?? "—"} · opened {inv.opened_on}</div>
+                        <div className="text-xs text-ink-3">{classNameById.get(inv.asset_class_id ?? "") ?? "—"} · opened {inv.opened_on}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm tabular-nums">₹{market.toLocaleString("en-IN")}</div>
-                        <div className="text-xs text-zinc-500 tabular-nums">
+                        <div className="text-xs text-ink-3 tabular-nums">
                           book ₹{book.toLocaleString("en-IN")} · {formatXirr(r)}
                         </div>
                       </div>
@@ -192,20 +192,20 @@ export default async function InvestmentsPage() {
 
       {closed.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500">Closed</h2>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Closed</h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {closed.map((inv) => {
               const entries = byInvId.get(inv.id) ?? [];
               const r = xirr(flowsFor(inv, entries));
               return (
                 <li key={inv.id}>
-                  <Link href={`/investments/${inv.id}`} className="block px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                  <Link href={`/investments/${inv.id}`} className="block px-4 py-3 hover:bg-surface-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{inv.name}</div>
-                        <div className="text-xs text-zinc-500">closed {inv.closed_on}</div>
+                        <div className="text-sm font-medium text-ink-2">{inv.name}</div>
+                        <div className="text-xs text-ink-3">closed {inv.closed_on}</div>
                       </div>
-                      <div className="text-xs text-zinc-500 tabular-nums">XIRR {formatXirr(r)}</div>
+                      <div className="text-xs text-ink-3 tabular-nums">XIRR {formatXirr(r)}</div>
                     </div>
                   </Link>
                 </li>
@@ -216,7 +216,7 @@ export default async function InvestmentsPage() {
       )}
 
       {invs.length === 0 && (
-        <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+        <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
           No investments yet.
         </p>
       )}
@@ -237,15 +237,15 @@ function Stat({
 }) {
   const toneCls =
     tone === "pos"
-      ? "text-emerald-700 dark:text-emerald-400"
+      ? "text-up"
       : tone === "neg"
-        ? "text-red-600 dark:text-red-400"
+        ? "text-down"
         : "";
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="text-xs text-ink-3">{label}</div>
       <div className={`mt-1 whitespace-nowrap text-lg font-semibold tabular-nums ${toneCls}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-zinc-500 tabular-nums">{sub}</div>}
+      {sub && <div className="mt-0.5 text-xs text-ink-3 tabular-nums">{sub}</div>}
     </div>
   );
 }

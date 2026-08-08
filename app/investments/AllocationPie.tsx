@@ -2,19 +2,23 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { fmtINR } from "@/lib/dates";
+import { Group } from "../ui";
 
-const COLORS = [
-  "#f59e0b", // amber
-  "#3b82f6", // blue
-  "#10b981", // emerald
-  "#ef4444", // red
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#f97316", // orange
-  "#6366f1", // indigo
-  "#84cc16", // lime
+// The validated categorical set, assigned in this fixed order and never
+// cycled. The previous ten-hex rainbow was outside the token system, so it
+// did not restep for dark mode, and `i % length` meant an 9th asset class
+// silently reused the 1st class's colour.
+const CAT = [
+  "var(--cat-1)",
+  "var(--cat-2)",
+  "var(--cat-3)",
+  "var(--cat-4)",
+  "var(--cat-5)",
+  "var(--cat-6)",
+  "var(--cat-7)",
+  "var(--cat-8)",
 ];
+const CAT_OTHER = "var(--cat-other)";
 
 function fmtCompact(n: number): string {
   const a = Math.abs(n);
@@ -24,14 +28,12 @@ function fmtCompact(n: number): string {
   return `₹${a.toFixed(0)}`;
 }
 
-// Mix a hex color toward white by `t` (0 = base, 1 = white).
-function lighten(hex: string, t: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  const mix = (c: number) => Math.round(c + (255 - c) * t);
-  return `#${((1 << 24) + (mix(r) << 16) + (mix(g) << 8) + mix(b)).toString(16).slice(1)}`;
+// Holdings within a class are shades of that class's hue. Opacity rather than
+// a mix toward white: the colours are CSS variables now, so there is no hex to
+// do arithmetic on, and mixing toward white is wrong on a dark surface anyway.
+// Largest holding keeps the full hue; smaller ones step down.
+function shade(index: number, count: number): number {
+  return count > 1 ? 1 - (index / (count - 1)) * 0.55 : 1;
 }
 
 type Datum = { name: string; value: number; assetClass: string };
@@ -58,7 +60,9 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
     .sort((a, b) => b.value - a.value);
 
   // Assign a base color per class; tint each investment a shade of it.
-  const classColor = new Map(classes.map((c, i) => [c.name, COLORS[i % COLORS.length]]));
+  const classColor = new Map(
+    classes.map((c, i) => [c.name, i < CAT.length ? CAT[i] : CAT_OTHER] as const),
+  );
 
   const innerData = classes.map((c) => ({
     name: c.name,
@@ -73,21 +77,20 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
       name: it.name,
       value: it.value,
       assetClass: c.name,
-      // Largest holding keeps the base color; smaller ones get progressively lighter.
-      color: n > 1 ? lighten(base, (i / (n - 1)) * 0.55) : base,
+      color: base,
+      opacity: shade(i, n),
     }));
   });
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-medium text-zinc-500">Portfolio allocation</h2>
-      <p className="text-xs text-zinc-400">
+    <Group title="Portfolio allocation" meta={fmtCompact(total)}>
+      <p className="text-[0.75rem] text-ink-3">
         By current market value. Inner ring: asset class · outer ring: investment.
       </p>
       <div className="mt-3 grid items-center gap-4 sm:grid-cols-[1fr_240px]">
         <div className="relative h-64">
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[10px] uppercase tracking-wide text-zinc-400">Total</span>
+            <span className="text-[10px] uppercase tracking-wide text-ink-3">Total</span>
             <span className="text-sm font-semibold tabular-nums">{fmtCompact(total)}</span>
           </div>
           <ResponsiveContainer width="100%" height="100%">
@@ -119,7 +122,7 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
                 stroke="none"
               >
                 {outerData.map((d, i) => (
-                  <Cell key={i} fill={d.color} />
+                  <Cell key={i} fill={d.color} fillOpacity={d.opacity} />
                 ))}
               </Pie>
               <Tooltip
@@ -149,18 +152,18 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
               <li key={c.name}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: base }} />
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: base }} />
                     <span className="truncate font-medium">{c.name}</span>
                   </div>
-                  <span className="shrink-0 text-zinc-500 tabular-nums">{classPct}%</span>
+                  <span className="shrink-0 text-ink-3 tabular-nums">{classPct}%</span>
                 </div>
                 <ul className="mt-1 space-y-0.5 pl-[18px]">
                   {c.items.map((it, i) => (
-                    <li key={it.name} className="flex items-center justify-between gap-3 text-xs text-zinc-500">
+                    <li key={it.name} className="flex items-center justify-between gap-3 text-xs text-ink-3">
                       <div className="flex min-w-0 items-center gap-2">
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: n > 1 ? lighten(base, (i / (n - 1)) * 0.55) : base }}
+                          style={{ background: base, opacity: shade(i, n) }}
                         />
                         <span className="truncate">{it.name}</span>
                       </div>
@@ -173,6 +176,6 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
           })}
         </ul>
       </div>
-    </section>
+    </Group>
   );
 }

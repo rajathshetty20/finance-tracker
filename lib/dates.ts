@@ -1,7 +1,16 @@
+/**
+ * The zone this ledger's days are counted in.
+ *
+ * Days must not depend on where the code runs. Resolving "today" from the
+ * process clock means the server (UTC on Vercel) and the user disagree by one
+ * day for part of every night, so an entry logged at 01:00 lands on yesterday
+ * and "this month" flips early on the 1st.
+ */
+export const APP_TIME_ZONE = "Asia/Kolkata";
+
 export function todayISO(): string {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIME_ZONE }).format(new Date());
 }
 
 export function monthsInRange(startISO: string, endISO: string): number {

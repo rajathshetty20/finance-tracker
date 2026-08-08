@@ -98,7 +98,7 @@ export default async function GoalsPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Goals</h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-3">
           Each goal needs a corpus by its date. Your investments sit in one pool, split by asset
           class, and are shared across goals by how soon they&apos;re due. Goals are a planning
           overlay — they never touch cash or net worth.
@@ -115,27 +115,27 @@ export default async function GoalsPage() {
 
       {monthlyRows.length > 0 && (
         <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Monthly investment by asset class</h2>
-          <p className="mb-2 text-xs text-zinc-500">
+          <h2 className="mb-1 text-sm font-medium text-ink-3">Monthly investment by asset class</h2>
+          <p className="mb-2 text-xs text-ink-3">
             How much to put into each asset class this year across all goals (steps up 10% each
             year).
           </p>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {monthlyRows.map((r) => (
               <li key={r.name} className="px-4 py-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">
                     {r.name}
-                    <span className="ml-2 text-xs text-zinc-400">pool {fmtCompact(r.poolNow)}</span>
+                    <span className="ml-2 text-xs text-ink-3">pool {fmtCompact(r.poolNow)}</span>
                   </span>
                   <span className="text-sm font-medium tabular-nums">{fmtINR(r.amt)}/mo</span>
                 </div>
                 {r.byGoal.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-zinc-500">
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-3">
                     {r.byGoal.map((g) => (
                       <span key={g.name} className="tabular-nums">
                         {g.name} {fmtINR(g.amt)}{" "}
-                        <span className="text-zinc-400">({formatMonthsLeft(g.monthsLeft)} left)</span>
+                        <span className="text-ink-3">({formatMonthsLeft(g.monthsLeft)} left)</span>
                       </span>
                     ))}
                   </div>
@@ -148,18 +148,18 @@ export default async function GoalsPage() {
 
       {surplusRows.length > 0 && (
         <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">
+          <h2 className="mb-1 text-sm font-medium text-ink-3">
             Surplus — not attributed to any goal
           </h2>
-          <p className="mb-2 text-xs text-zinc-500">
+          <p className="mb-2 text-xs text-ink-3">
             Investments beyond what your goals&apos; plans call for in that asset class (or in a
             class no goal targets). Total {fmtCompact(totalSurplus)}.
           </p>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {surplusRows.map((r) => (
               <li key={r.name} className="flex items-center justify-between px-4 py-2.5">
                 <span className="text-sm">{r.name}</span>
-                <span className="text-sm font-medium tabular-nums text-zinc-500">{fmtINR(r.amt)}</span>
+                <span className="text-sm font-medium tabular-nums text-ink-3">{fmtINR(r.amt)}</span>
               </li>
             ))}
           </ul>
@@ -168,7 +168,7 @@ export default async function GoalsPage() {
 
       <section className="space-y-3">
         {analyses.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+          <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
             No active goals yet. Add one below.
           </p>
         ) : (
@@ -178,13 +178,13 @@ export default async function GoalsPage() {
 
       {inactive.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-zinc-500">Achieved / archived</h2>
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Achieved / archived</h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {inactive.map((g) => (
               <li key={g.id}>
-                <Link href={`/goals/${g.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">{g.name}</span>
-                  <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                <Link href={`/goals/${g.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-surface-2">
+                  <span className="text-sm text-ink-2">{g.name}</span>
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
                     {g.status}
                   </span>
                 </Link>
@@ -194,14 +194,14 @@ export default async function GoalsPage() {
         </section>
       )}
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-medium text-zinc-500">Add goal</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink-3">Add goal</h2>
         <CreateGoalForm />
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-1 text-sm font-medium text-zinc-500">Asset classes & expected returns</h2>
-        <p className="mb-3 text-xs text-zinc-500">
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="mb-1 text-sm font-medium text-ink-3">Asset classes & expected returns</h2>
+        <p className="mb-3 text-xs text-ink-3">
           The appreciation assumption (annual %) used to project every goal. Investments are tagged
           with these classes.
         </p>
@@ -226,27 +226,27 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
   return (
     <Link
       href={`/goals/${goal.id}`}
-      className="block rounded-xl border border-zinc-200 bg-white p-4 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800/50"
+      className="block rounded-xl border border-rule bg-surface p-4 hover:bg-surface-2"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{goal.name}</span>
           </div>
-          <div className="mt-0.5 text-xs text-zinc-500">
+          <div className="mt-0.5 text-xs text-ink-3">
             {goal.end_date} · {timeLeft}
           </div>
         </div>
         {noPlan ? (
-          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+          <span className="shrink-0 rounded-full bg-warn-soft px-2 py-0.5 text-[10px] font-medium text-warn">
             no plan
           </span>
         ) : (
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
               onTrack
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                ? "bg-up-soft text-up"
+                : "bg-down-soft text-down"
             }`}
           >
             {onTrack ? "on track" : "behind"}
@@ -254,13 +254,13 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
         )}
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
         <div
-          className={`h-full rounded-full ${onTrack ? "bg-emerald-500" : "bg-amber-500"}`}
+          className={`h-full rounded-full ${onTrack ? "bg-up" : "bg-warn"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="mt-2 flex items-center justify-between text-xs text-zinc-500 tabular-nums">
+      <div className="mt-2 flex items-center justify-between text-xs text-ink-3 tabular-nums">
         <span>
           {fmtINR(a.attributed)} / {fmtINR(projection.targetCorpus)}
         </span>
@@ -270,9 +270,9 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
           ) : !projection.hasPlan ? (
             "—"
           ) : shortNow > 0.5 ? (
-            <span className="text-red-600 dark:text-red-400">short {fmtINR(shortNow)}</span>
+            <span className="text-down">short {fmtINR(shortNow)}</span>
           ) : (
-            <span className="text-emerald-700 dark:text-emerald-400">fully funded</span>
+            <span className="text-up">fully funded</span>
           )}
         </span>
       </div>
@@ -282,8 +282,8 @@ function GoalCard({ a }: { a: GoalAnalysis }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="text-xs text-ink-3">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
     </div>
   );

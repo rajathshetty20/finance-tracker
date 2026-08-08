@@ -1,5 +1,6 @@
 "use client";
 
+import { Group } from "./ui";
 import {
   Area,
   AreaChart,
@@ -72,13 +73,13 @@ function ChartTooltip({
         lineHeight: 1.5,
       }}
     >
-      <div style={{ color: "rgb(113 113 122)" }}>{fmtDateLong(Number(label))}</div>
+      <div style={{ color: "var(--ink-3)" }}>{fmtDateLong(Number(label))}</div>
       <div style={{ marginTop: 4 }}>
-        <span style={{ color: "rgb(113 113 122)" }}>Net Worth </span>
+        <span style={{ color: "var(--ink-3)" }}>Net Worth </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(p.nw)}</span>
       </div>
       <div>
-        <span style={{ color: "rgb(113 113 122)" }}>Debt ratio </span>
+        <span style={{ color: "var(--ink-3)" }}>Debt ratio </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{ratio.toFixed(1)}%</span>
       </div>
     </div>
@@ -92,50 +93,46 @@ export default function NetworthChart({ data }: { data: Point[] }) {
   const singlePoint = data.length === 1;
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-medium text-zinc-500">Net worth</h2>
-      <div className="mt-3 h-64">
+    <Group title="Net worth" meta="₹">
+      <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="nwGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(16 185 129)" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="rgb(16 185 129)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis
               dataKey="ts"
               type="number"
               scale="time"
               domain={["dataMin", "dataMax"]}
               tickFormatter={fmtDateShort}
-              tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
+              tick={{ fill: "var(--ink-3)", fontSize: 11 }}
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               minTickGap={40}
             />
             <YAxis
               tickFormatter={fmtCompact}
-              tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
+              tick={{ fill: "var(--ink-3)", fontSize: 11 }}
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
               domain={["auto", "auto"]}
             />
             <Tooltip content={<ChartTooltip />} />
+            {/* Stroke only. The shaded region under an area measures down to
+                the axis baseline, and this axis starts wherever the data does
+                — the fill would represent nothing. */}
             <Area
               type="monotone"
               dataKey="nw"
-              stroke="rgb(16 185 129)"
+              stroke="var(--accent)"
               strokeWidth={2.5}
-              fill="url(#nwGradient)"
-              dot={singlePoint ? { r: 4, fill: "rgb(16 185 129)" } : false}
-              activeDot={{ r: 5, fill: "rgb(16 185 129)", stroke: "var(--chart-surface)", strokeWidth: 2 }}
+              fill="none"
+              dot={singlePoint ? { r: 4, fill: "var(--accent)" } : false}
+              activeDot={{ r: 5, fill: "var(--accent)", stroke: "var(--chart-surface)", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </section>
+    </Group>
   );
 }

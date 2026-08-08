@@ -44,13 +44,13 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   const target = Number(payload.find((p) => p.dataKey === "target")?.value ?? 0);
   return (
     <div style={{ backgroundColor: "var(--chart-surface)", border: "1px solid var(--chart-border)", borderRadius: 8, fontSize: 12, padding: "8px 10px", lineHeight: 1.5 }}>
-      <div style={{ color: "rgb(113 113 122)" }}>{fmtDate(Number(label))}</div>
+      <div style={{ color: "var(--ink-3)" }}>{fmtDate(Number(label))}</div>
       <div style={{ marginTop: 4 }}>
-        <span style={{ color: "rgb(113 113 122)" }}>Planned </span>
+        <span style={{ color: "var(--ink-3)" }}>Planned </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(planned)}</span>
       </div>
       <div>
-        <span style={{ color: "rgb(113 113 122)" }}>Target </span>
+        <span style={{ color: "var(--ink-3)" }}>Target </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(target)}</span>
       </div>
     </div>
@@ -72,15 +72,15 @@ export default function GoalChart({
   const clampedTs = Math.min(Math.max(todayTs, points[0].ts), points[points.length - 1].ts);
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-medium text-zinc-500">Projection — planned corpus vs target</h2>
+    <section className="rounded-xl border border-rule bg-surface p-4">
+      <h2 className="text-sm font-medium text-ink-3">Projection — planned corpus vs target</h2>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="plannedGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(59 130 246)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="rgb(59 130 246)" stopOpacity={0} />
+                <stop offset="0%" stopColor="var(--goal)" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="var(--goal)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -90,31 +90,34 @@ export default function GoalChart({
               scale="time"
               domain={["dataMin", "dataMax"]}
               tickFormatter={fmtDate}
-              tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
+              tick={{ fill: "var(--ink-3)", fontSize: 11 }}
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               minTickGap={50}
             />
+            {/* Anchored at zero, unlike the other charts: this one is a fill
+                measuring progress up from nothing toward the target, so the
+                shaded region means exactly what it looks like. */}
             <YAxis
               tickFormatter={fmtCompact}
-              tick={{ fill: "rgb(113 113 122)", fontSize: 11 }}
+              tick={{ fill: "var(--ink-3)", fontSize: 11 }}
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
-              domain={["auto", "auto"]}
+              domain={[0, "auto"]}
             />
             <Tooltip content={<ChartTooltip />} />
-            <Legend verticalAlign="top" height={24} iconType="plainline" wrapperStyle={{ fontSize: 11, color: "rgb(113 113 122)" }} />
-            <Area type="monotone" dataKey="planned" name="Planned" stroke="rgb(59 130 246)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
-            <Line type="monotone" dataKey="target" name="Target" stroke="rgb(113 113 122)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+            <Legend verticalAlign="top" height={24} iconType="plainline" wrapperStyle={{ fontSize: 11, color: "var(--ink-3)" }} />
+            <Area type="monotone" dataKey="planned" name="Planned" stroke="var(--goal)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
+            <Line type="monotone" dataKey="target" name="Target" stroke="var(--ink-3)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
             <ReferenceDot
               x={clampedTs}
               y={attributed}
               r={5}
-              fill="rgb(16 185 129)"
+              fill="var(--ink-2)"
               stroke="var(--chart-surface)"
               strokeWidth={2}
-              label={{ value: "now", position: "top", fontSize: 11, fill: "rgb(16 185 129)" }}
+              label={{ value: "now", position: "top", fontSize: 11, fill: "var(--ink-2)" }}
             />
           </ComposedChart>
         </ResponsiveContainer>

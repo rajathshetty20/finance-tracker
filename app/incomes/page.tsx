@@ -29,7 +29,7 @@ export default async function IncomesPage() {
         <header>
           <h1 className="text-2xl font-semibold">Incomes</h1>
         </header>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-3">
           Create a phase first in <Link href="/settings" className="underline">Settings</Link>.
         </p>
       </div>
@@ -67,26 +67,26 @@ export default async function IncomesPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Incomes</h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-3">
           New entries attach to <strong>{currentPhase.name}</strong>. Entries in closed phases are locked.
         </p>
       </header>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-3 text-sm font-medium text-zinc-500">Add income</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink-3">Add income</h2>
         <AddIncomeForm categories={categories} phaseStart={currentPhase.start_date} />
       </section>
 
       {breakdown.length > 0 && (
-        <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-            <h2 className="text-sm font-medium text-zinc-500">By category — {currentPhase.name}</h2>
-            <p className="text-xs text-zinc-400">
+        <section className="overflow-hidden rounded-xl border border-rule bg-surface">
+          <div className="border-b border-rule-soft px-4 py-3">
+            <h2 className="text-sm font-medium text-ink-3">By category — {currentPhase.name}</h2>
+            <p className="text-xs text-ink-3">
               Past monthly average (across {monthsForAvg} completed month{monthsForAvg === 1 ? "" : "s"}) vs. current month so far.
             </p>
           </div>
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            <li className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+          <ul className="divide-y divide-rule">
+            <li className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-3">
               <span>Category</span>
               <span className="w-28 text-right">Avg / mo</span>
               <span className="w-28 text-right">This month</span>
@@ -98,7 +98,7 @@ export default async function IncomesPage() {
                 <span className="w-28 text-right tabular-nums">{fmtINR(s.current)}</span>
               </li>
             ))}
-            <li className="grid grid-cols-[1fr_auto_auto] items-center gap-4 bg-zinc-50 px-4 py-2 text-sm font-medium dark:bg-zinc-900/40">
+            <li className="grid grid-cols-[1fr_auto_auto] items-center gap-4 bg-surface-2 px-4 py-2 text-sm font-medium">
               <span>Total</span>
               <span className="w-28 text-right tabular-nums">{fmtINR(breakdownTotalAvg)}</span>
               <span className="w-28 text-right tabular-nums">{fmtINR(breakdownTotalCurrent)}</span>
@@ -108,22 +108,22 @@ export default async function IncomesPage() {
       )}
 
       {groups.every((g) => g.rows.length === 0) ? (
-        <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+        <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
           Nothing logged yet.
         </p>
       ) : (
         groups.map(({ phase, rows }) =>
           rows.length === 0 ? null : (
             <section key={phase.id}>
-              <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-500">
+              <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-ink-3">
                 {phase.name}
                 {phase.end_date === null && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                  <span className="rounded-full bg-up-soft px-2 py-0.5 text-[10px] font-medium text-up">
                     current
                   </span>
                 )}
               </h2>
-              <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+              <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
                 {rows.map((e) => (
                   <IncomeRow
                     key={e.id}

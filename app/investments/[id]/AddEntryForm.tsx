@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { addInvestmentEntry } from "../actions";
+import { useGuard } from "../../useGuard";
 
 function todayISO() {
   const d = new Date();
@@ -12,6 +13,7 @@ function todayISO() {
 export default function AddEntryForm({ investmentId }: { investmentId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const guard = useGuard();
   const [entryType, setEntryType] = useState<"contribution" | "withdrawal" | "valuation">("contribution");
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -19,14 +21,16 @@ export default function AddEntryForm({ investmentId }: { investmentId: string })
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
+    startTransition(() =>
+      guard(async () => {
       const res = await addInvestmentEntry(fd);
       if (res?.error) setError(res.error);
       else {
         formRef.current?.reset();
         setEntryType("contribution");
       }
-    });
+    }),
+    );
   }
 
   const amountDisabled = entryType === "valuation";
@@ -54,31 +58,31 @@ export default function AddEntryForm({ investmentId }: { investmentId: string })
           name="date"
           required
           defaultValue={todayISO()}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input
           name="amount"
           type="number"
-          step="0.01"
+          step="any"
           min="0"
           required={!amountDisabled}
           disabled={amountDisabled}
           placeholder={amountDisabled ? "n/a" : "Cash flow amount"}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink disabled:opacity-50"
         />
         <input
           name="total_value"
           type="number"
-          step="0.01"
+          step="any"
           min="0"
           required
           placeholder="Total value after"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
           {pending ? "Adding..." : "Add entry"}
         </button>
@@ -86,9 +90,9 @@ export default function AddEntryForm({ investmentId }: { investmentId: string })
       <input
         name="note"
         placeholder="Note (optional)"
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+        className="w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
       />
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-down">{error}</p>}
     </form>
   );
 }

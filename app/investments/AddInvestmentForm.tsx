@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { createInvestment } from "./actions";
+import { useGuard } from "../useGuard";
 
 function todayISO() {
   const d = new Date();
@@ -12,17 +13,20 @@ function todayISO() {
 export default function AddInvestmentForm({ assetClasses }: { assetClasses: string[] }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const guard = useGuard();
   const formRef = useRef<HTMLFormElement>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
+    startTransition(() =>
+      guard(async () => {
       const res = await createInvestment(fd);
       if (res?.error) setError(res.error);
       else formRef.current?.reset();
-    });
+    }),
+    );
   }
 
   return (
@@ -32,13 +36,13 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           name="name"
           required
           placeholder="Name (e.g. Zerodha Nifty 50 SIP)"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input
           name="asset_class"
           list="asset-class-options"
           placeholder="Asset class (e.g. Equity, Fixed income)"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <datalist id="asset-class-options">
           {assetClasses.map((c) => (
@@ -46,7 +50,7 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           ))}
         </datalist>
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-ink-3">
         First contribution — the historical cost basis (use current value if unknown):
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -55,35 +59,35 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           name="date"
           required
           defaultValue={todayISO()}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input
           name="amount"
           type="number"
-          step="0.01"
+          step="any"
           min="0.01"
           required
           placeholder="Amount invested"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input
           name="total_value"
           type="number"
-          step="0.01"
+          step="any"
           min="0"
           required
           placeholder="Current total value"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100"
+          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
       </div>
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+        className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
       >
         {pending ? "Creating..." : "Create investment"}
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-down">{error}</p>}
     </form>
   );
 }

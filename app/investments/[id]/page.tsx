@@ -69,17 +69,17 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
     <div className="space-y-6">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
-          <Link href="/investments" className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">← Investments</Link>
+          <Link href="/investments" className="text-xs text-ink-3 hover:text-ink">← Investments</Link>
         </div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold">{investment.name}</h1>
           {investment.status === "closed" && (
-            <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
               closed {investment.closed_on}
             </span>
           )}
         </div>
-        <p className="text-sm text-zinc-500">{assetClassName} · opened {investment.opened_on}</p>
+        <p className="text-sm text-ink-3">{assetClassName} · opened {investment.opened_on}</p>
         <AssetClassPicker
           investmentId={investment.id}
           current={assetClassName}
@@ -107,8 +107,8 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
 
       {investment.status === "open" && (
         <>
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="mb-3 text-sm font-medium text-zinc-500">Add entry</h2>
+          <section className="rounded-xl border border-rule bg-surface p-4">
+            <h2 className="mb-3 text-sm font-medium text-ink-3">Add entry</h2>
             <AddEntryForm investmentId={investment.id} />
           </section>
           <section>
@@ -118,27 +118,27 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
       )}
 
       <section>
-        <h2 className="mb-2 text-sm font-medium text-zinc-500">Entries</h2>
+        <h2 className="mb-2 text-sm font-medium text-ink-3">Entries</h2>
         {entries.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+          <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
             No entries yet.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {entries.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-2">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="w-20 text-xs text-zinc-500 tabular-nums">{e.date}</span>
+                  <span className="w-20 text-xs text-ink-3 tabular-nums">{e.date}</span>
                   <span className="w-28 text-xs">
                     <EntryTypePill type={e.entry_type} />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-zinc-500">{e.note}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{e.note}</span>
                 </div>
                 <div className="text-right tabular-nums text-xs">
-                  {e.entry_type === "contribution" && <div className="text-red-600 dark:text-red-400">−₹{Number(e.amount).toLocaleString("en-IN")}</div>}
-                  {e.entry_type === "withdrawal" && <div className="text-emerald-700 dark:text-emerald-400">+₹{Number(e.amount).toLocaleString("en-IN")}</div>}
-                  {e.entry_type === "valuation" && <div className="text-zinc-400">—</div>}
-                  <div className="text-zinc-500">NAV ₹{Number(e.total_value_after).toLocaleString("en-IN")}</div>
+                  {e.entry_type === "contribution" && <div className="text-down">−₹{Number(e.amount).toLocaleString("en-IN")}</div>}
+                  {e.entry_type === "withdrawal" && <div className="text-up">+₹{Number(e.amount).toLocaleString("en-IN")}</div>}
+                  {e.entry_type === "valuation" && <div className="text-ink-3">—</div>}
+                  <div className="text-ink-3">NAV ₹{Number(e.total_value_after).toLocaleString("en-IN")}</div>
                 </div>
               </li>
             ))}
@@ -151,9 +151,9 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
 
 function EntryTypePill({ type }: { type: "contribution" | "withdrawal" | "valuation" }) {
   const styles: Record<typeof type, string> = {
-    contribution: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-    withdrawal: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-    valuation: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+    contribution: "bg-down-soft text-down",
+    withdrawal: "bg-up-soft text-up",
+    valuation: "bg-surface-2 text-ink",
   };
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[type]}`}>
@@ -164,8 +164,8 @@ function EntryTypePill({ type }: { type: "contribution" | "withdrawal" | "valuat
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="text-xs text-ink-3">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
     </div>
   );

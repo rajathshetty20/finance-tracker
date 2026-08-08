@@ -92,19 +92,19 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <Link href="/goals" className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+        <Link href="/goals" className="text-xs text-ink-3 hover:text-ink">
           ← Goals
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">{goal.name}</h1>
           {goal.status !== "active" && (
-            <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
               {goal.status}
             </span>
           )}
         </div>
-        {goal.description && <p className="text-sm text-zinc-500">{goal.description}</p>}
-        <p className="text-sm text-zinc-500">
+        {goal.description && <p className="text-sm text-ink-3">{goal.description}</p>}
+        <p className="text-sm text-ink-3">
           Target {goal.end_date} · {fmtINR(goal.present_cost)} today @ {Number(goal.inflation_rate)}%
           inflation
         </p>
@@ -123,7 +123,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       </section>
 
       {!analysis?.projection.hasPlan && (
-        <p className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+        <p className="rounded-xl border border-dashed border-warn bg-warn-soft p-4 text-sm text-warn/40">
           This goal has no glide path yet. Set the allocation plan below to see progress and the
           required monthly investment.
         </p>
@@ -133,15 +133,15 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
       {rows.length > 0 && (
         <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Allocation right now (shared pool, soonest-due goals first)</h2>
-          <p className="mb-2 text-xs text-zinc-500">
+          <h2 className="mb-1 text-sm font-medium text-ink-3">Allocation right now (shared pool, soonest-due goals first)</h2>
+          <p className="mb-2 text-xs text-ink-3">
             Suggested ₹/mo is this year&apos;s amount — contributions are assumed to step up 10%
             each year from here.
           </p>
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="overflow-x-auto rounded-xl border border-rule bg-surface">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500 dark:border-zinc-800">
+                <tr className="border-b border-rule text-left text-xs text-ink-3">
                   <th className="px-4 py-2 font-medium">Asset class</th>
                   <th className="px-4 py-2 text-right font-medium">Need now</th>
                   <th className="px-4 py-2 text-right font-medium">Have</th>
@@ -149,16 +149,16 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
                   <th className="px-4 py-2 text-right font-medium">Suggested ₹/mo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              <tbody className="divide-y divide-rule">
                 {rows.map((r) => (
                   <tr key={r.classId} className="tabular-nums">
                     <td className="px-4 py-2">
                       {r.name}
-                      <span className="ml-2 text-xs text-zinc-400">pool {fmtINR(r.poolTotal)}</span>
+                      <span className="ml-2 text-xs text-ink-3">pool {fmtINR(r.poolTotal)}</span>
                     </td>
                     <td className="px-4 py-2 text-right">{fmtINR(r.need)}</td>
                     <td className="px-4 py-2 text-right">{fmtINR(r.have)}</td>
-                    <td className={`px-4 py-2 text-right ${r.shortfall > 0 ? "text-red-600 dark:text-red-400" : "text-zinc-400"}`}>
+                    <td className={`px-4 py-2 text-right ${r.shortfall > 0 ? "text-down" : "text-ink-3"}`}>
                       {r.shortfall > 0 ? fmtINR(r.shortfall) : "—"}
                     </td>
                     <td className="px-4 py-2 text-right">{r.sipShare > 0 ? fmtINR(r.sipShare) : "—"}</td>
@@ -170,14 +170,14 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         </section>
       )}
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-1 text-sm font-medium text-zinc-500">Glide path</h2>
-        <p className="mb-3 text-xs text-zinc-500">
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="mb-1 text-sm font-medium text-ink-3">Glide path</h2>
+        <p className="mb-3 text-xs text-ink-3">
           Target allocation at each milestone (years before the goal date). Each milestone must sum
           to 100%. Between milestones the allocation glides linearly.
         </p>
         {assetClasses.length === 0 ? (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-ink-3">
             Add asset classes on the{" "}
             <Link href="/goals" className="underline">
               Goals
@@ -202,13 +202,13 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
   const toneCls =
     tone === "pos"
-      ? "text-emerald-700 dark:text-emerald-400"
+      ? "text-up"
       : tone === "neg"
-        ? "text-red-600 dark:text-red-400"
+        ? "text-down"
         : "";
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs text-zinc-500">{label}</div>
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="text-xs text-ink-3">{label}</div>
       <div className={`mt-1 text-lg font-semibold tabular-nums ${toneCls}`}>{value}</div>
     </div>
   );
