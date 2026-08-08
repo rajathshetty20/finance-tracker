@@ -98,22 +98,22 @@ export default async function ExpensesPage() {
             </p>
           </div>
           <ul className="divide-y divide-rule">
-            <li className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-3">
-              <span>Category</span>
+            <li className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-0.5 sm:grid-cols-[1fr_auto_auto_auto] sm:gap-4 px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-3">
+              <span className="col-span-3 sm:col-span-1">Category</span>
               <span className="w-24 text-right">Avg / mo</span>
               <span className="w-20 text-right">% income</span>
               <span className="w-24 text-right">This month</span>
             </li>
             {breakdown.map((s) => (
-              <li key={s.name} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-2 text-sm">
-                <span className="truncate">{s.name}</span>
+              <li key={s.name} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-0.5 sm:grid-cols-[1fr_auto_auto_auto] sm:gap-4 px-4 py-2 text-sm">
+                <span className="col-span-3 truncate sm:col-span-1">{s.name}</span>
                 <span className="w-24 text-right tabular-nums">{fmtINR(s.avg)}</span>
                 <span className="w-20 text-right tabular-nums text-ink-3">{pctOfIncome(s.avg)}</span>
                 <span className="w-24 text-right tabular-nums">{fmtINR(s.current)}</span>
               </li>
             ))}
-            <li className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 bg-surface-2 px-4 py-2 text-sm font-medium">
-              <span>Total</span>
+            <li className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-0.5 sm:grid-cols-[1fr_auto_auto_auto] sm:gap-4 bg-surface-2 px-4 py-2 text-sm font-medium">
+              <span className="col-span-3 sm:col-span-1">Total</span>
               <span className="w-24 text-right tabular-nums">{fmtINR(breakdownTotalAvg)}</span>
               <span className="w-20 text-right tabular-nums text-ink-3">{pctOfIncome(breakdownTotalAvg)}</span>
               <span className="w-24 text-right tabular-nums">{fmtINR(breakdownTotalCurrent)}</span>
