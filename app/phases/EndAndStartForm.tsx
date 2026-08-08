@@ -68,7 +68,7 @@ export default function EndAndStartForm({ currentName }: { currentName: string }
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-ground hover:opacity-90 disabled:opacity-60"
         >
           {pending ? "Working..." : "End and start new"}
         </button>

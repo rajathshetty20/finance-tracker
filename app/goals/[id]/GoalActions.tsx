@@ -82,7 +82,7 @@ export default function GoalActions({ goal }: { goal: Goal }) {
             </label>
           </div>
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={pending} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60">
+            <button type="submit" disabled={pending} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-ground hover:opacity-90 disabled:opacity-60">
               {pending ? "Saving..." : "Save"}
             </button>
             <button type="button" onClick={() => setEditing(false)} className="text-sm text-ink-3">

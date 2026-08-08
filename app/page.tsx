@@ -58,7 +58,7 @@ export default async function DashboardPage() {
         </header>
         <Link
           href="/settings"
-          className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          className="inline-block rounded-md bg-ink px-4 py-2 text-sm font-medium text-ground hover:opacity-90"
         >
           Create your first phase
         </Link>

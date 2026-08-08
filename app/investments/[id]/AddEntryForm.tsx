@@ -82,7 +82,7 @@ export default function AddEntryForm({ investmentId }: { investmentId: string })
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+          className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-ground hover:opacity-90 disabled:opacity-60"
         >
           {pending ? "Adding..." : "Add entry"}
         </button>

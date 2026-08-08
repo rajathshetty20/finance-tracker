@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "../Logo";
 import { signInAsDemo } from "./actions";
 
 export default function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
@@ -49,7 +50,10 @@ export default function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
         className="w-full max-w-sm space-y-4 rounded-xl border border-rule bg-surface p-6 shadow-sm"
       >
         <div>
-          <h1 className="text-xl font-semibold">Finance tracker</h1>
+          <div className="flex items-center gap-2.5">
+            <Logo className="h-7 w-7 shrink-0" />
+            <h1 className="text-xl font-semibold">Finance tracker</h1>
+          </div>
           <p className="text-sm text-ink-3">Sign in with a magic link.</p>
         </div>
         <input
@@ -63,7 +67,7 @@ export default function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
         <button
           type="submit"
           disabled={status === "sending"}
-          className="w-full rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+          className="w-full rounded-md bg-ink px-3 py-2 text-sm font-medium text-ground hover:opacity-90 disabled:opacity-60"
         >
           {status === "sending" ? "Sending..." : "Send link"}
         </button>

@@ -437,7 +437,7 @@ export default function GlidePathEditor({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-ink px-4 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60">
+        <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-ink px-4 py-1.5 text-sm font-medium text-ground hover:opacity-90 disabled:opacity-60">
           {pending ? "Saving..." : "Save plan"}
         </button>
         <button type="button" onClick={addMilestone} className="rounded-md border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2">
