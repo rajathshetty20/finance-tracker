@@ -65,12 +65,14 @@ A full design doc lives in [HLD.md](HLD.md), covering the domain model, the net-
 
 ### Demo mode
 
-The login page can offer a one-click **"Explore the demo (read-only)"** button that signs visitors into a shared, pre-seeded account. To set it up:
+Once configured, **`/demo` is a public link anyone can open** — it signs the visitor into a shared, pre-seeded account and lands them on the dashboard with nothing to click or type. The login page also carries an "Explore the demo (read-only)" button. To set it up:
 
 1. In Supabase → Authentication → Add user, create the demo user (default `demo@example.com`) with a password, auto-confirmed.
 2. Run `supabase/seed_demo.sql` in the SQL Editor. It seeds ~3 years of fictional history — two job phases, monthly income and expenses, seven investments across four asset classes (including a closed position with its realized gain), two debts, and four goals with glide paths — all generated to satisfy the same accounting identity the dashboard uses, so every number reconciles. Dates slide with the run date (history always ends at the last complete month, goal deadlines sit relative to today), so the demo never looks stale; reseed anytime with the cleanup block at the bottom of the script.
 3. Run `supabase/demo_readonly.sql`. This rewrites the RLS policies so the demo user can read but never write — enforced in the database, not just the UI, since the demo session's token could be replayed against the REST API directly.
-4. Set `DEMO_EMAIL` and `DEMO_PASSWORD` in your environment (they're server-only). The button appears automatically when both are set, and the app shows a "read-only demo" banner while the demo session is active.
+4. Set `DEMO_EMAIL` and `DEMO_PASSWORD` in your environment (they're server-only). `/demo` and the button both start working when both are set, and the app shows a "read-only demo" banner while the demo session is active.
+
+Sharing the `/demo` link is safe for you specifically: if someone who is already signed in with their own account follows it, `/demo` does **not** replace their session — it sends them to a confirmation page first, since signing them out would mean waiting on another magic link to get back in. If the demo isn't configured on a deployment, the link explains that rather than dumping the visitor on a blank sign-in form.
 
 ## Status
 

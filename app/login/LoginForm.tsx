@@ -5,7 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import Logo from "../Logo";
 import { signInAsDemo } from "./actions";
 
-export default function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
+export default function LoginForm({
+  demoEnabled,
+  notice,
+}: {
+  demoEnabled: boolean;
+  notice?: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [demoPending, setDemoPending] = useState(false);
@@ -55,6 +61,11 @@ export default function LoginForm({ demoEnabled }: { demoEnabled: boolean }) {
             <h1 className="text-xl font-semibold">Finance tracker</h1>
           </div>
           <p className="text-sm text-ink-3">Sign in with a magic link.</p>
+          {notice && (
+            <p className="rounded-lg border border-rule bg-surface-2 px-3 py-2 text-[0.8125rem] text-ink-2">
+              {notice}
+            </p>
+          )}
         </div>
         <input
           type="email"

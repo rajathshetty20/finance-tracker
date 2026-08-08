@@ -30,7 +30,10 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth");
+  // /demo is the public door into the read-only demo account: it signs the
+  // visitor in itself, so it must not be bounced to /login first.
+  const isAuthRoute =
+    path.startsWith("/login") || path.startsWith("/auth") || path.startsWith("/demo");
 
   if (!user && !isAuthRoute) {
     const url = request.nextUrl.clone();
