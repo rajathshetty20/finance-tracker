@@ -90,7 +90,7 @@ begin
   returning id into p1;
 
   insert into public.phases (user_id, name, start_date, notes)
-  values (u_id, 'SE2 — Meta', pb, null)
+  values (u_id, 'SDE2 — Meta', pb, null)
   returning id into p2;
 
   -- ── Categories ─────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ begin
     if ph_id = p1 then p1_inc := p1_inc + amt; else p2_inc := p2_inc + amt; end if;
 
     -- rent (moved to a costlier flat with the new job)
-    amt := case when d < pb then 24000 else 28000 end;
+    amt := case when d < pb then 38000 else 52000 end;
     insert into public.expenses (user_id, phase_id, category_id, date, amount, note)
     values (u_id, ph_id, cat_rent, d + 1, amt, null);
     if ph_id = p1 then p1_exp := p1_exp + amt; else p2_exp := p2_exp + amt; end if;
@@ -203,7 +203,7 @@ begin
   val := 0;
   for m in 0..33 loop
     d := (base + make_interval(months => 1 + m, days => 4))::date;
-    sip := case when m < 19 then 20000 else 30000 end;
+    sip := case when m < 19 then 45000 else 62000 end;
     val := round(val * (1 + 0.010
                           + 0.045 * sin(m * 1.70)
                           + 0.030 * sin(m * 0.37)
@@ -226,9 +226,9 @@ begin
                           + 0.050 * sin(m * 2.10 + 0.9)
                           + 0.028 * sin(m * 0.53)
                           - (case when m between 12 and 15 then 0.060 else 0 end)
-                       )::numeric) + 10000;
+                       )::numeric) + 25000;
     insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note)
-    values (u_id, inv_flexi, d, 'contribution', 10000, val, 'Monthly SIP');
+    values (u_id, inv_flexi, d, 'contribution', 25000, val, 'Monthly SIP');
     open_book := open_book + 10000;
   end loop;
 
@@ -347,7 +347,7 @@ begin
 
   -- ── Debt 2: car loan — open, 13 EMIs paid ──────────────────────────────
   insert into public.debts (user_id, description, principal, total_payable, start_date)
-  values (u_id, 'Car loan — Maruti Baleno', 500000, 610000,
+  values (u_id, 'Car loan — BMW 3 Series', 1800000, 2214000,
           (base + make_interval(months => 21, days => 9))::date)
   returning id into debt_car;
   for m in 0..12 loop
