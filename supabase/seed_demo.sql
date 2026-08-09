@@ -208,7 +208,8 @@ begin
                           + 0.045 * sin(m * 1.70)
                           + 0.030 * sin(m * 0.37)
                           + 0.020 * sin(m * 2.90)
-                          - (case when m between 14 and 17 then 0.055 else 0 end)
+                          - (case when m between  9 and 13 then 0.155
+                                  when m between 23 and 26 then 0.115 else 0 end)
                        )::numeric) + sip;
     insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note)
     values (u_id, inv_nifty, d, 'contribution', sip, val, 'Monthly SIP');
@@ -225,7 +226,8 @@ begin
     val := round(val * (1 + 0.011
                           + 0.050 * sin(m * 2.10 + 0.9)
                           + 0.028 * sin(m * 0.53)
-                          - (case when m between 12 and 15 then 0.060 else 0 end)
+                          - (case when m between  7 and 11 then 0.165
+                                  when m between 18 and 20 then 0.105 else 0 end)
                        )::numeric) + 25000;
     insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note)
     values (u_id, inv_flexi, d, 'contribution', 25000, val, 'Monthly SIP');
