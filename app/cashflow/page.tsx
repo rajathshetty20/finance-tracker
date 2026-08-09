@@ -192,7 +192,7 @@ export default async function CashflowPage({
           <div className="mt-3 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">
             <span>Category</span>
             <span className="w-20 text-right">Avg / mo</span>
-            <span className="w-20 text-right">{fmtMonthShort(thisMonth)}</span>
+            <span className="w-24 text-right">{fmtMonthShort(thisMonth)}</span>
           </div>
           <ul className="mt-1 divide-y divide-rule-soft">
             {byCategory.map((r) => (
@@ -208,28 +208,35 @@ export default async function CashflowPage({
                   {r.name}
                 </Link>
                 <span className="w-20 text-right tabular-nums text-ink-2">{fmtINR(r.avg)}</span>
-                <span
-                  className={`w-20 text-right tabular-nums ${
-                    r.current === 0
-                      ? "text-ink-3"
-                      : r.delta > r.avg * 0.25 && r.avg > 0
-                        ? "text-warn"
-                        : ""
-                  }`}
-                >
-                  {r.current === 0 ? "—" : fmtINR(r.current)}
+                {/* The comparison is spelled out rather than encoded as a
+                    colour. A caption reading "amber where this month is
+                    running well above" explained the paint, not the rule, and
+                    left the rule invisible to anyone who cannot see it. */}
+                <span className="w-24 text-right tabular-nums">
+                  <span className={r.current === 0 ? "text-ink-3" : ""}>
+                    {r.current === 0 ? "—" : fmtINR(r.current)}
+                  </span>
+                  {/* Only the overshoot. Under-spending part-way through a
+                      month is not news — on the 9th every category reads far
+                      below a full month's average, which is arithmetic, not a
+                      signal. Being ALREADY above one is worth saying. */}
+                  {r.delta > 0 && r.avg > 0 && r.delta >= r.avg * 0.2 && (
+                    <span className="block text-[0.6875rem] text-warn">
+                      +{Math.round((r.delta / r.avg) * 100)}% vs avg
+                    </span>
+                  )}
                 </span>
               </li>
             ))}
             <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t border-rule pt-1.5 text-[0.8125rem] font-semibold">
               <span>Total</span>
               <span className="w-20 text-right tabular-nums">{fmtINR(avgTotal)}</span>
-              <span className="w-20 text-right tabular-nums">{fmtINR(currentTotal)}</span>
+              <span className="w-24 text-right tabular-nums">{fmtINR(currentTotal)}</span>
             </li>
           </ul>
           <p className="mt-2 text-[0.6875rem] text-ink-3">
             Average over {bases.completedMonths} completed month
-            {bases.completedMonths === 1 ? "" : "s"}. Amber where this month is running well above it.
+            {bases.completedMonths === 1 ? "" : "s"}.
           </p>
         </section>
       )}
