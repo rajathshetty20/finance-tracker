@@ -8,12 +8,8 @@ import AddEntryForm from "./AddEntryForm";
 import CloseForm from "./CloseForm";
 import AssetClassPicker from "./AssetClassPicker";
 import InvestmentChart from "../InvestmentChart";
+import { appToday } from "@/lib/demo";
 
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-}
 
 export default async function InvestmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -61,7 +57,7 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
     else if (e.entry_type === "withdrawal") flows.push({ date: e.date, amount: Number(e.amount) });
   }
   if (investment.status === "open" && market > 0) {
-    flows.push({ date: todayISO(), amount: market });
+    flows.push({ date: await appToday(), amount: market });
   }
   const r = xirr(flows);
 
@@ -69,7 +65,7 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
     <div className="space-y-6">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
-          <Link href="/investments" className="text-xs text-ink-3 hover:text-ink">← Investments</Link>
+          <Link href="/holdings" className="text-xs text-ink-3 hover:text-ink">← Holdings</Link>
         </div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold">{investment.name}</h1>

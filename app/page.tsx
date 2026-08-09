@@ -15,20 +15,25 @@ import type {
   Phase,
   Entry,
 } from "@/lib/types";
-import { analyzeGoals, poolByAssetClass } from "@/lib/goals";
-import { todayISO, monthsInRange, daysInRange, currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
+import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass, poolValueAsOf } from "@/lib/goals";
+import { cashflowBases } from "@/lib/money";
+import { appToday } from "@/lib/demo";
+import { currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
 
 // Module scope: reading the clock inside the component body counts as
 // calling an impure function during render.
-function daysSince(iso: string | null): number {
+function daysSince(iso: string | null, today: string): number {
   if (!iso) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+  const then = new Date(iso).getTime();
+  const now = new Date(`${today}T00:00:00Z`).getTime();
+  return Math.max(0, Math.floor((now - then) / 86_400_000));
 }
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  const today = await appToday();
 
   const [
     { data: phasesData },
@@ -81,7 +86,7 @@ export default async function DashboardPage() {
   const [{ data: expensesData }, { data: incomesData }, { data: categoriesData }] = await Promise.all([
     supabase.from("expenses").select("*"),
     supabase.from("incomes").select("*"),
-    supabase.from("categories").select("*").eq("kind", "income"),
+    supabase.from("categories").select("*"),
   ]);
 
   const cash = (cashData ?? []) as CashBalance[];
@@ -102,11 +107,12 @@ export default async function DashboardPage() {
 
   const openInvs = invs.filter((i) => i.status === "open");
 
-  const invest_market = openInvs.reduce((acc, inv) => {
-    const es = entriesByInv.get(inv.id) ?? [];
-    const latest = [...es].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
-    return acc + (latest ? Number(latest.total_value_after) : 0);
-  }, 0);
+  // Was an inline copy that sorted on `date` alone — reintroducing exactly the
+  // same-date tie bug lib/goals.ts documents. One implementation, imported.
+  const invest_market = openInvs.reduce(
+    (acc, inv) => acc + marketValueOf(inv, entriesByInv.get(inv.id) ?? []),
+    0,
+  );
 
   const bookOf = (es: InvestmentEntry[]) =>
     es.reduce((a, e) => {
@@ -120,7 +126,12 @@ export default async function DashboardPage() {
     0,
   );
 
-  const cashSum = cash.reduce((a, r) => a + Number(r.amount), 0);
+  // Signed ledger: a card balance is a negative row. Netting it into one
+  // "cash" figure puts card debt on the assets side — /holdings was fixed for
+  // this and Home was not, so the two tabs disagreed one click apart.
+  const cashInHand = cash.reduce((a, r) => a + Math.max(0, Number(r.amount)), 0);
+  const cardFloat = cash.reduce((a, r) => a + Math.min(0, Number(r.amount)), 0); // ≤ 0
+  const cashSum = cashInHand + cardFloat;
 
   const paidBy = new Map<string, number>();
   for (const p of payments) paidBy.set(p.debt_id, (paidBy.get(p.debt_id) ?? 0) + Number(p.amount));
@@ -147,58 +158,39 @@ export default async function DashboardPage() {
   const expected_NW = unrealized_net + money_sources + phase_savings;
   const cash_discrepancy = expected_NW - NW;
 
-  // Current-phase monthly averages.
-  // Income lands at end of the month, so the current (partial) month doesn't
-  // yet contain its income — exclude it from the divisor AND from past totals.
-  const months = monthsInRange(currentPhase.start_date, todayISO());
-  const days = daysInRange(currentPhase.start_date, todayISO());
-  const months_for_avg = Math.max(1, months - 1);
-  const showAverages = days >= 7 && months >= 2;
-  const monthStart = currentMonthStartISO();
-  const phase_income_past   = incomes.filter((e) => e.date <  monthStart).reduce((a, r) => a + Number(r.amount), 0);
-  const phase_expense_past  = expenses.filter((e) => e.date <  monthStart).reduce((a, r) => a + Number(r.amount), 0);
-  const avgIncome = phase_income_past / months_for_avg;
-  const avgPastExpense = phase_expense_past / months_for_avg;
+  // Every average, the EMI, and both "investable" figures come from one place
+  // (lib/money.ts) so this page and /plan cannot print different numbers under
+  // the same word — which they did, by ₹13,716.
+  const monthStart = currentMonthStartISO(today);
+  const bases = cashflowBases({
+    incomes,
+    expenses,
+    openDebts,
+    payments,
+    categories: incomeCategories,
+    phaseStartISO: currentPhase.start_date,
+    todayISO: today,
+    monthStartISO: monthStart,
+  });
+  const months_for_avg = bases.completedMonths;
+  const showAverages = bases.hasHistory;
+  const avgIncome = bases.avgIncome;
+  const avgPastExpense = bases.avgExpense;
 
   // Debt-to-asset ratio (informational, alongside debt pending)
-  const assets_for_ratio = invest_market + cashSum;
-  const debt_ratio = assets_for_ratio > 0 ? debt_pending / assets_for_ratio : null;
+  const assets_for_ratio = invest_market + cashInHand;
+  const owed_total = debt_pending + Math.abs(cardFloat);
+  const debt_ratio = assets_for_ratio > 0 ? owed_total / assets_for_ratio : null;
 
-  // Cashflow metrics
-  // Inhand salary = latest income entry in current phase whose category is "Salary"
-  const salaryCat = incomeCategories.find((c) => c.name === "Salary");
-  let inhandSalary: number | null = null;
-  if (salaryCat) {
-    const salaryEntries = incomes
-      .filter((e) => e.category_id === salaryCat.id)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-    if (salaryEntries.length > 0) inhandSalary = Number(salaryEntries[0].amount);
-  }
-  // Total EMI = sum of each open debt's most recent payment amount.
-  // (No dedicated emi column — the last actual EMI is a reliable proxy.)
-  const lastEmiAmount = new Map<string, number>();
-  const lastEmiDate = new Map<string, string>();
-  for (const p of payments) {
-    const prev = lastEmiDate.get(p.debt_id);
-    if (!prev || p.date > prev) {
-      lastEmiDate.set(p.debt_id, p.date);
-      lastEmiAmount.set(p.debt_id, Number(p.amount));
-    }
-  }
-  const totalEmi = openDebts.reduce((a, d) => a + (lastEmiAmount.get(d.id) ?? 0), 0);
-  // Monthly investable = inhand_salary − past avg monthly expense − total EMI
-  const monthlyInvestable =
-    inhandSalary !== null && showAverages
-      ? inhandSalary - avgPastExpense - totalEmi
-      : null;
-  // SIP rate = monthly investable as % of inhand salary
+  const totalEmi = bases.emiTotal;
+  const monthlyInvestable = bases.salaryInvestable;
 
   const oldestCashUpdate =
     cash.length > 0
       ? cash.reduce((min, r) => (r.updated_at < min ? r.updated_at : min), cash[0].updated_at)
       : null;
 
-  const oldestCashAgeDays = daysSince(oldestCashUpdate);
+  const oldestCashAgeDays = daysSince(oldestCashUpdate, today);
 
 
   // Goals: same helper the Goals page uses, so the two pages can never
@@ -212,8 +204,9 @@ export default async function DashboardPage() {
     else allocByGoal.set(a.goal_id, [a]);
   }
   const pool = poolByAssetClass(invs, entriesByInv);
-  const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, todayISO());
-  const goalsRequired = analyses.reduce((s, a) => s + a.requiredMonthly, 0);
+  const poolAt = (iso: string) => poolValueAsOf(invs, entriesByInv, iso);
+  const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today, poolAt);
+  const goalsRequired = planSummary(analyses).requiredMonthly;
   // The plan is funded by a standing SIP out of salary, not out of a trailing
   // average that is dragged down by an older pay level.
   const headroom =
@@ -231,9 +224,9 @@ export default async function DashboardPage() {
   // Every outflow subtracted in order. "Avg investable" is what a typical month
   // actually leaves once debt service is taken out — the old "avg savings"
   // stopped at expenses, so it read ~17k higher than anything you could invest.
-  const avgInvestable = showAverages ? avgIncome - avgPastExpense - totalEmi : null;
+  const avgInvestable = bases.avgInvestable;
 
-  const assets = invest_market + cashSum;
+  const assets = invest_market + cashInHand;
   const balanced = Math.abs(cash_discrepancy) < 0.01;
 
   const nwSeries = buildNetworthSeries({
@@ -244,8 +237,21 @@ export default async function DashboardPage() {
     money,
     incomes: allIncomes,
     expenses: allExpenses,
-    today: todayISO(),
+    today,
   });
+
+  // The parity check, stated as the subtraction it is. Two independent routes
+  // to the same cash figure: what the ledger implies you must be holding, and
+  // what you have actually recorded. "Off by ₹1,46,945" named a discrepancy
+  // without ever showing where it came from, which is the one thing this app
+  // exists to be able to do.
+  //   derived_cash = money_sources + phase_savings − open_invest_book
+  //                  + (debt_pending − interest_commit)
+  // which is expected_NW − invest_market + debt_pending once unrealized gain
+  // cancels. Written the long way so the sentence under the table is checkable.
+  const loan_principal_outstanding = debt_pending - interest_commit;
+  const derived_cash =
+    money_sources + phase_savings - open_invest_book + loan_principal_outstanding;
 
   return (
     <div className="space-y-6">
@@ -262,17 +268,17 @@ export default async function DashboardPage() {
           <>
             <div className="mt-4 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
               <span style={{ width: `${(invest_market / assets) * 100}%`, background: "var(--cat-1)" }} />
-              <span style={{ width: `${(cashSum / assets) * 100}%`, background: "var(--cat-6)" }} />
+              <span style={{ width: `${Math.max(0, (cashInHand / assets) * 100)}%`, background: "var(--cat-6)" }} />
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]">
               <Key color="var(--cat-1)" value={fmt(invest_market)} name="invested" />
-              <Key color="var(--cat-6)" value={fmt(cashSum)} name="cash" />
+              <Key color="var(--cat-6)" value={fmt(cashInHand)} name="cash in hand" />
             </div>
           </>
         )}
 
         <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmt(assets)} assets − {fmt(debt_pending)} debt = {fmt(NW)}
+          {fmt(assets)} assets − {fmt(owed_total)} owed = {fmt(NW)}
           {debt_ratio !== null && debt_pending > 0 && (
             <span className="ml-2">· debt is {(debt_ratio * 100).toFixed(1)}% of assets</span>
           )}
@@ -283,27 +289,65 @@ export default async function DashboardPage() {
             appear only when it disagreed — but "the books balance" is the
             claim this app exists to make, so it is worth stating when true. */}
         <div className="mt-4 border-t border-rule-soft pt-3">
-          {balanced ? (
-            <p className="flex items-start gap-2 text-[0.8125rem] text-ink-2">
+          <p className="flex items-start gap-2 text-[0.8125rem] text-ink-2">
+            {balanced ? (
               <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-up" />
-              <span>
-                <span className="font-medium text-ink">Books balance.</span> Holdings and the
-                income-and-spending ledger agree, to the rupee.
-              </span>
-            </p>
-          ) : (
-            <p className="flex items-start gap-2 text-[0.8125rem] text-ink-2">
+            ) : (
               <TriangleAlert className="mt-[3px] h-3.5 w-3.5 shrink-0 text-warn" />
-              <span>
-                <span className="font-medium text-ink">Off by {fmt(Math.abs(cash_discrepancy))}.</span>{" "}
-                {cash_discrepancy > 0
-                  ? "Cash is understated — money received but not recorded."
-                  : "Cash is overstated — money spent but not recorded."}{" "}
-                <Link href="/cash" className="underline">Sync cash</Link>
-                {oldestCashUpdate && ` · oldest entry ${oldestCashAgeDays}d old`}.
-              </span>
-            </p>
-          )}
+            )}
+            <span>
+              {balanced ? (
+                <>
+                  <span className="font-medium text-ink">Books balance.</span> Holdings and the
+                  income-and-spending ledger agree, to the rupee.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-ink">
+                    {fmt(Math.abs(cash_discrepancy))} unexplained.
+                  </span>{" "}
+                  {cash_discrepancy > 0
+                    ? "The ledger accounts for more cash than you hold — money spent but not recorded."
+                    : "You hold more cash than the ledger accounts for — money received but not recorded."}{" "}
+                  <Link href="/money-sources" className="underline">
+                    Check the sources
+                  </Link>{" "}
+                  or{" "}
+                  <Link href="/holdings" className="underline">
+                    sync cash
+                  </Link>
+                  {oldestCashUpdate && ` · oldest cash entry ${oldestCashAgeDays}d old`}.
+                </>
+              )}
+            </span>
+          </p>
+          {/* Always shown, balanced or not: the claim is only worth anything if
+              the reader can see the two figures it compares. */}
+          <table className="mt-2 w-full font-mono text-[0.6875rem] tabular-nums text-ink-3">
+            <tbody>
+              <tr>
+                <td className="py-px pr-2">cash the ledger implies</td>
+                <td className="py-px text-right">{fmt(derived_cash)}</td>
+              </tr>
+              <tr>
+                <td className="py-px pr-2">− cash you have recorded</td>
+                <td className="py-px text-right">{fmt(cashSum)}</td>
+              </tr>
+              <tr className={balanced ? "text-up" : "text-warn"}>
+                <td className="border-t border-rule-soft py-px pr-2">= unexplained</td>
+                <td className="border-t border-rule-soft py-px text-right font-semibold">
+                  {fmt(cash_discrepancy)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-ink-3">
+            Implied cash = {fmt(money_sources)} money sources {phase_savings < 0 ? "−" : "+"}{" "}
+            {fmt(Math.abs(phase_savings))} saved this phase − {fmt(open_invest_book)} put into
+            investments + {fmt(loan_principal_outstanding)}{" "}
+            borrowed and not yet repaid. Market
+            value cancels out of this line: an investment&apos;s gain is not cash until it is sold.
+          </p>
         </div>
       </section>
 
@@ -377,7 +421,7 @@ export default async function DashboardPage() {
                 Short by{" "}
                 <span className="font-semibold tabular-nums text-down">{fmt(Math.abs(headroom))}</span>{" "}
                 a month across {analyses.length} active goal{analyses.length === 1 ? "" : "s"}.{" "}
-                <Link href="/goals" className="underline">Review the goals</Link>.
+                <Link href="/plan" className="underline">Review the plan</Link>.
               </>
             )}
           </div>

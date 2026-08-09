@@ -29,10 +29,16 @@ do $$
 declare
   demo_email constant text := 'demo@example.com';
 
+  -- The day the demo is frozen at. MUST equal DEMO_TODAY in lib/demo.ts: the
+  -- app reads that constant as "today" for the demo session, and if the two
+  -- disagree the data drifts out from under the clock — goals silently fall
+  -- behind schedule, and "last complete month" stops matching the ledger.
+  demo_today constant date := date '2026-08-09';
+
   -- Timeline anchors. m0 = first of the LAST COMPLETE month (nothing is ever
   -- dated in the future); base = month 0 of the 35-month history; pb = the
   -- phase boundary (start of the second job, month 19).
-  m0   constant date := (date_trunc('month', current_date) - interval '1 month')::date;
+  m0   constant date := (date_trunc('month', demo_today) - interval '1 month')::date;
   base constant date := (m0 - make_interval(months => 34))::date;
   pb   constant date := (base + make_interval(months => 19))::date;
 
@@ -45,6 +51,7 @@ declare
   cat_rent uuid; cat_groc uuid; cat_dining uuid; cat_transport uuid;
   cat_util uuid; cat_subs uuid; cat_misc uuid;
   cat_travel uuid; cat_shopping uuid; cat_health uuid;
+  cat_delivery uuid;
 
   -- asset classes
   ac_eq uuid; ac_fi uuid; ac_gold uuid; ac_crypto uuid;
@@ -107,6 +114,7 @@ begin
   insert into public.categories (user_id, name, kind) values (u_id, 'Travel', 'expense')       returning id into cat_travel;
   insert into public.categories (user_id, name, kind) values (u_id, 'Shopping', 'expense')     returning id into cat_shopping;
   insert into public.categories (user_id, name, kind) values (u_id, 'Health', 'expense')       returning id into cat_health;
+  insert into public.categories (user_id, name, kind) values (u_id, 'Food delivery', 'expense') returning id into cat_delivery;
 
   -- ── Monthly salary + recurring expenses (months 0..34) ─────────────────
   for m in 0..34 loop
@@ -127,24 +135,106 @@ begin
     -- rent (moved to a costlier flat with the new job)
     amt := case when d < pb then 38000 else 52000 end;
     insert into public.expenses (user_id, phase_id, category_id, date, amount, note)
-    values (u_id, ph_id, cat_rent, d + 1, amt, null);
+    values (u_id, ph_id, cat_rent, d + 1, amt,
+            case when d = pb then 'Moved to Indiranagar — bigger flat, closer to office' end);
     if ph_id = p1 then p1_exp := p1_exp + amt; else p2_exp := p2_exp + amt; end if;
 
-    -- variable monthlies (deterministic sin-based wiggle, rounded to ₹10)
+    -- Everything else in the month.
+    --
+    -- This used to emit exactly one row per category on a fixed day of the
+    -- month, every month, for three years: 36 Rent, 36 Groceries, 36
+    -- Subscriptions, one each, none missed, none doubled. The loop was visible
+    -- through the UI — ₹999 on the 3rd and ₹7,930 groceries on the 6th,
+    -- repeating — and no one spends like that. Nobody buys groceries once a
+    -- month, and a ₹2.1L-a-month engineer in Bangalore does not eat out once.
+    --
+    -- So counts and days vary per month, some categories skip months entirely,
+    -- and the mix includes the things that actually dominate an urban Indian
+    -- ledger: delivered food, fuel and cabs, and impulse shopping. Still fully
+    -- deterministic — every varying quantity is a function of `m`, never
+    -- random, so two visitors always see the same ledger.
+    --
+    -- Notes land on the months that are unusual, not on every row: a note on
+    -- all 35 rents is noise, and the note column then reads as decoration
+    -- rather than as the place the exceptions are explained.
     for rec in
-      select * from (values
-        (cat_subs,      d + 2,  999::numeric),
-        (cat_groc,      d + 5,  round(((7800 + 600 * sin(m * 1.3)) / 10)::numeric) * 10),
-        (cat_util,      d + 7,  round(((2100 + 300 * sin(m * 2.2)) / 10)::numeric) * 10),
-        (cat_dining,    d + 13, round(((4200 + 900 * sin(m * 2.7)) / 10)::numeric) * 10),
-        (cat_transport, d + 19, round(((2400 + 400 * sin(m * 1.9)) / 10)::numeric) * 10),
-        (cat_misc,      d + 24, round(((1800 + 700 * sin(m * 3.1)) / 10)::numeric) * 10)
-      ) as t(cat, dt, amount)
+      -- Subscriptions: one line; the amount steps when a service is added.
+      select cat_subs as cat, (d + 2)::date as dt,
+             (case when m >= 26 then 1497 when m >= 13 then 1199 else 649 end)::numeric as amount,
+             (case when m = 26 then 'Added YouTube Premium'
+                   when m = 13 then 'Netflix plan upgrade' end)::text as note
+      union all
+      -- Utilities: one line, and higher through the Bangalore summer.
+      select cat_util, (d + 5 + (m % 4))::date,
+             round(((2800 + 700 * sin(m * 2.2)
+                     + case when extract(month from d) in (4, 5) then 1800 else 0 end) / 10)::numeric) * 10,
+             case when extract(month from d) in (4, 5) then 'Summer — AC running most nights' end
+      union all
+      -- Groceries: two to four runs a month, on wandering days.
+      select cat_groc, (d + 2 + ((g * 9 + m * 5) % 25))::date,
+             round(((3600 + 1300 * sin(m * 1.3 + g * 2.1)) / 10)::numeric) * 10,
+             case when g = 0 and extract(month from d) in (10, 11) then 'Diwali stock-up' end
+      from generate_series(0, 1 + (m * 7 + 3) % 3) as g
+      union all
+      -- Food delivery: the category that actually repeats. Three to eight.
+      select cat_delivery, (d + ((g * 11 + m * 3) % 28))::date,
+             round(((700 + 340 * sin(m * 0.9 + g * 1.7)) / 10)::numeric) * 10,
+             case when g = 0 and m % 9 = 4 then 'Long week — cooked nothing' end
+      from generate_series(0, 3 + (m * 5 + 1) % 7) as g
+      union all
+      -- Eating out: one to three, and pricier than delivery.
+      select cat_dining, (d + 4 + ((g * 13 + m * 7) % 22))::date,
+             round(((2800 + 1300 * sin(m * 2.7 + g * 1.1)) / 10)::numeric) * 10,
+             case when g = 0 and m % 5 = 2 then 'Birthday dinner' end
+      from generate_series(0, (m * 3 + 2) % 3) as g
+      union all
+      -- Fuel and cabs: one to three.
+      select cat_transport, (d + 1 + ((g * 8 + m * 11) % 26))::date,
+             round(((2000 + 1100 * sin(m * 1.9 + g * 2.3)) / 10)::numeric) * 10,
+             case when g = 0 and m % 7 = 3 then 'Airport cabs' end
+      from generate_series(0, (m * 5 + 4) % 3) as g
+      union all
+      -- Shopping: skipped in most months, occasionally two in one.
+      select cat_shopping, (d + 6 + ((g * 5 + m * 9) % 20))::date,
+             round(((3500 + 2200 * sin(m * 3.3 + g * 0.7)) / 10)::numeric) * 10,
+             case when extract(month from d) in (10, 11) then 'Festive sale' end
+      from generate_series(1, case when m % 3 = 1 then 0 when m % 7 = 2 then 2 else 1 end) as g
+      union all
+      -- Odds and ends: usually there, sometimes not.
+      select cat_misc, (d + 12 + ((g * 6 + m * 4) % 15))::date,
+             round(((1400 + 900 * sin(m * 3.1 + g * 1.9)) / 10)::numeric) * 10,
+             case when m % 4 = 1 then 'Haircut, laundry, repairs' end
+      from generate_series(1, case when m % 5 = 3 then 0 else 1 + (m % 2) end) as g
     loop
-      insert into public.expenses (user_id, phase_id, category_id, date, amount)
-      values (u_id, ph_id, rec.cat, rec.dt, rec.amount);
+      insert into public.expenses (user_id, phase_id, category_id, date, amount, note)
+      values (u_id, ph_id, rec.cat, rec.dt, rec.amount, rec.note);
       if ph_id = p1 then p1_exp := p1_exp + rec.amount; else p2_exp := p2_exp + rec.amount; end if;
     end loop;
+  end loop;
+
+  -- ── The month in progress ──────────────────────────────────────────────
+  -- The loop above stops at the last COMPLETE month, which left the demo's
+  -- current month entirely empty: "this month" read ₹0 earned and ₹0 spent,
+  -- and every recurring category looked unlogged. A part-logged month is both
+  -- the honest state of a ledger on the 9th and the one that exercises the
+  -- "did I forget to log something" nudge — Utilities, Dining out, Transport
+  -- and Miscellaneous are deliberately left unlogged so it has something true
+  -- to say. No salary row: pay lands at month end, which is exactly why every
+  -- average on the dashboard excludes the month in progress.
+  for rec in
+    select * from (values
+      (cat_rent,     2, 52000::numeric, null),
+      (cat_subs,     3,  1497::numeric, null),
+      (cat_groc,     4,  4120::numeric, null),
+      (cat_delivery, 5,   780::numeric, null),
+      (cat_delivery, 7,   640::numeric, null),
+      (cat_groc,     8,  3260::numeric, 'Ran out of everything at once')
+    ) as t(cat, dom, amount, note)
+  loop
+    d := (date_trunc('month', demo_today) + make_interval(days => rec.dom - 1))::date;
+    insert into public.expenses (user_id, phase_id, category_id, date, amount, note)
+    values (u_id, p2, rec.cat, d, rec.amount, rec.note);
+    p2_exp := p2_exp + rec.amount;
   end loop;
 
   -- ── One-off incomes (month offset + day of month) ──────────────────────
@@ -177,6 +267,7 @@ begin
       (cat_shopping, 18,  8,  6800::numeric, null),
       (cat_shopping, 25, 19, 15200::numeric, 'Festive season'),
       (cat_shopping, 31, 11,  8400::numeric, null),
+      (cat_shopping, 33, 14, 145000::numeric, 'MacBook Pro + iPhone — work setup refresh'),
       (cat_health,   10, 10, 18500::numeric, 'Health insurance premium'),
       (cat_health,   22, 10, 19800::numeric, 'Health insurance premium'),
       (cat_health,   34, 10, 21200::numeric, 'Health insurance premium'),
@@ -349,14 +440,14 @@ begin
 
   -- ── Debt 2: car loan — open, 13 EMIs paid ──────────────────────────────
   insert into public.debts (user_id, description, principal, total_payable, start_date)
-  values (u_id, 'Car loan — Hyundai Creta', 500000, 610000,
+  values (u_id, 'Car loan — Hyundai Creta — 36 EMIs @ 9.2% (incl. ₹9k processing fee)', 500000, 572400,
           (base + make_interval(months => 21, days => 9))::date)
   returning id into debt_car;
   for m in 0..12 loop
     d := (base + make_interval(months => 22 + m, days => 9))::date;
     insert into public.debt_payments (user_id, debt_id, date, amount, note)
-    values (u_id, debt_car, d, 16950, 'EMI');
-    car_paid := car_paid + 16950;
+    values (u_id, debt_car, d, 15900, 'EMI');
+    car_paid := car_paid + 15900;
   end loop;
 
   -- ── Remaining money sources ────────────────────────────────────────────
@@ -379,31 +470,58 @@ begin
   if cash < 50000 then
     raise exception 'Derived cash came out too low (%) — seed math drifted, check totals.', cash;
   end if;
+  -- A credit-card row carries a NEGATIVE balance. Without one, nothing in the
+  -- demo exercised the split that keeps card debt off the assets side.
+  -- The three still sum to `cash`, so the balance check stays at zero.
   insert into public.cash_balances (user_id, name, amount) values
-    (u_id, 'Savings account', cash - 25000),
-    (u_id, 'Wallet & UPI', 25000);
+    (u_id, 'Savings account', cash - 25000 + 48200),
+    (u_id, 'Wallet & UPI', 25000),
+    (u_id, 'HDFC Credit Card', -48200);
 
-  -- ── Goals + glide paths (deadlines relative to today) ──────────────────
+  -- ── Goals + glide paths (deadlines relative to the frozen today) ───────
+  --
+  -- created_at is NOT decorative here: lib/goals.ts reads it as the date the
+  -- plan started, and projects the on-track corpus from it. Letting it default
+  -- to now() made every goal zero months old, so the planned corpus today was
+  -- zero, every per-class need was zero, and the waterfall reported "on track"
+  -- for a goal 0.15% funded. Each goal is given the date its plan actually
+  -- began, which is what makes the schedule verdict mean anything.
+  --
   -- Emergency fund: due next month → exercises the waterfall's due-goal handling.
-  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate)
+  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, created_at)
   values (u_id, 'Emergency fund', '6 months of expenses, always on call',
-          (date_trunc('month', current_date) + interval '1 month')::date, 600000, 0)
+          (date_trunc('month', demo_today) + interval '1 month')::date, 550000, 0,
+          (demo_today - make_interval(months => 18))::timestamptz)
   returning id into g_id;
   insert into public.goal_allocations (user_id, goal_id, asset_class_id, months_before_end, target_pct)
   values (u_id, g_id, ac_fi, 0, 100);
 
-  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate)
+  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, created_at)
   values (u_id, 'Europe trip', '3 weeks across Italy and Spain',
-          (date_trunc('month', current_date) + interval '16 months')::date, 450000, 5)
+          (date_trunc('month', demo_today) + interval '16 months')::date, 450000, 5,
+          (demo_today - make_interval(months => 12))::timestamptz)
   returning id into g_id;
   insert into public.goal_allocations (user_id, goal_id, asset_class_id, months_before_end, target_pct) values
     (u_id, g_id, ac_eq, 24, 40),
     (u_id, g_id, ac_fi, 24, 60),
     (u_id, g_id, ac_fi, 0, 100);
 
-  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate)
+  -- Two months old, and deliberately sharing Europe trip's date: the demo had
+  -- no goal young enough to show "no history yet" and no tied due dates.
+  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, created_at)
+  values (u_id, 'New laptop', 'Replace the work machine',
+          (date_trunc('month', demo_today) + interval '16 months')::date, 180000, 6,
+          (demo_today - make_interval(months => 2))::timestamptz)
+  returning id into g_id;
+  insert into public.goal_allocations (user_id, goal_id, asset_class_id, months_before_end, target_pct) values
+    (u_id, g_id, ac_fi, 0, 100),
+    (u_id, g_id, ac_eq, 18, 30),
+    (u_id, g_id, ac_fi, 18, 70);
+
+  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, created_at)
   values (u_id, 'House down payment', '20% down on a 1.5cr flat',
-          (date_trunc('month', current_date) + interval '54 months')::date, 3000000, 7)
+          (date_trunc('month', demo_today) + interval '54 months')::date, 3000000, 7,
+          (demo_today - make_interval(months => 24))::timestamptz)
   returning id into g_id;
   insert into public.goal_allocations (user_id, goal_id, asset_class_id, months_before_end, target_pct) values
     (u_id, g_id, ac_eq,   60, 70),
@@ -416,9 +534,10 @@ begin
     (u_id, g_id, ac_fi,    0, 75),
     (u_id, g_id, ac_gold,  0, 5);
 
-  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate)
+  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, created_at)
   values (u_id, 'Retirement', 'Financial independence at ~55',
-          (date_trunc('month', current_date) + interval '309 months')::date, 30000000, 6)
+          (date_trunc('month', demo_today) + interval '309 months')::date, 40000000, 6,
+          (demo_today - make_interval(months => 30))::timestamptz)
   returning id into g_id;
   insert into public.goal_allocations (user_id, goal_id, asset_class_id, months_before_end, target_pct) values
     (u_id, g_id, ac_eq,     312, 75),

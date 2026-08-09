@@ -30,8 +30,49 @@ export function formatMonthsLeft(monthsRemaining: number): string {
 /** Latest valuation of an open investment; closed → 0. */
 export function marketValueOf(inv: Investment, entries: InvestmentEntry[]): number {
   if (inv.status === "closed") return 0;
-  const latest = [...entries].sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  // Two entries can share a date (a contribution and a same-day valuation), and
+  // the rows arrive unordered. Comparing only `date` returns −1 for a tie, so
+  // which one counted as "latest" depended on the order the DB happened to
+  // return — the same holding could read differently on two pages, by lakhs.
+  // created_at breaks the tie, matching lib/investmentSeries.ts.
+  const latest = [...entries].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return a.created_at < b.created_at ? 1 : -1;
+  })[0];
   return latest ? Number(latest.total_value_after) : 0;
+}
+
+/**
+ * Market value of one investment as at `iso` — the latest valuation on or
+ * before that date, or 0 if it had not opened yet or was already closed.
+ */
+export function marketValueAsOf(
+  inv: Investment,
+  entries: InvestmentEntry[],
+  iso: string,
+): number {
+  if (inv.status === "closed" && inv.closed_on && inv.closed_on <= iso) return 0;
+  let latest: InvestmentEntry | null = null;
+  for (const e of entries) {
+    if (e.date > iso) continue;
+    if (
+      !latest ||
+      e.date > latest.date ||
+      (e.date === latest.date && e.created_at > latest.created_at)
+    ) {
+      latest = e;
+    }
+  }
+  return latest ? Number(latest.total_value_after) : 0;
+}
+
+/** Total invested market value as at `iso`. */
+export function poolValueAsOf(
+  invs: Investment[],
+  entriesByInv: Map<string, InvestmentEntry[]>,
+  iso: string,
+): number {
+  return invs.reduce((a, inv) => a + marketValueAsOf(inv, entriesByInv.get(inv.id) ?? [], iso), 0);
 }
 
 /** Market value of all open investments, grouped by asset class id. */
@@ -209,6 +250,7 @@ function solveSIP(
 export type GoalProjection = {
   hasPlan: boolean;
   totalMonths: number; // created_at → end_date
+  monthsElapsed: number; // created_at → now, clamped to [0, totalMonths]
   monthsRemaining: number; // now → end_date
   targetCorpus: number;
   plannedCorpusNow: number; // on-track corpus today, per the goal's own SIP plan
@@ -229,6 +271,17 @@ export function projectGoal(
   allocations: GoalAllocation[],
   assetClasses: AssetClass[],
   nowISO: string,
+  /**
+   * Corpus this goal could already claim when its plan started.
+   *
+   * The planned path used to start at ₹0 on created_at — i.e. it assumed the
+   * owner opened the app owning nothing. Anyone who starts tracking an
+   * existing portfolio then divides their real corpus by two instalments'
+   * worth of plan and reads "1764% of schedule". Worse, the ratio swung tens
+   * of points month to month as the waterfall reallocated, with no money
+   * moving. See analyzeGoals for how this is estimated.
+   */
+  startCorpus = 0,
 ): GoalProjection {
   const createdISO = goal.created_at.slice(0, 10);
   const N = Math.max(0, monthsBetween(createdISO, goal.end_date));
@@ -251,8 +304,8 @@ export function projectGoal(
   const targetAllocNow = new Map<string, number>();
 
   if (hasPlan && N > 0) {
-    baselineSIP = solveSIP(0, target, N, N, glide, monthlyReturns);
-    const path = simulatePath(0, baselineSIP, N, N, glide, monthlyReturns);
+    baselineSIP = solveSIP(startCorpus, target, N, N, glide, monthlyReturns);
+    const path = simulatePath(startCorpus, baselineSIP, N, N, glide, monthlyReturns);
     plannedCorpusNow = path[elapsed] ?? 0;
     // Corpus that, growing with NO further SIP, reaches target by the date.
     const growth = monthsRemaining > 0
@@ -277,6 +330,7 @@ export function projectGoal(
   return {
     hasPlan,
     totalMonths: N,
+    monthsElapsed: elapsed,
     monthsRemaining,
     targetCorpus: target,
     plannedCorpusNow,
@@ -332,6 +386,7 @@ export function plannedSeries(
   goal: Goal,
   allocations: GoalAllocation[],
   assetClasses: AssetClass[],
+  startCorpus = 0,
 ): PlannedPoint[] {
   const createdISO = goal.created_at.slice(0, 10);
   const N = Math.max(0, monthsBetween(createdISO, goal.end_date));
@@ -342,8 +397,8 @@ export function plannedSeries(
   const monthlyReturns = new Map(
     assetClasses.map((ac) => [ac.id, monthlyRate(Number(ac.expected_return))]),
   );
-  const baselineSIP = solveSIP(0, target, N, N, glide, monthlyReturns);
-  const path = simulatePath(0, baselineSIP, N, N, glide, monthlyReturns);
+  const baselineSIP = solveSIP(startCorpus, target, N, N, glide, monthlyReturns);
+  const path = simulatePath(startCorpus, baselineSIP, N, N, glide, monthlyReturns);
 
   return path.map((planned, j) => ({ date: addMonthsISO(createdISO, j), planned, target }));
 }
@@ -485,17 +540,80 @@ export type GoalsAnalysis = {
   surplusByClass: Map<string, number>; // invested pool not attributed to any goal
 };
 
+
+/**
+ * Fraction of the whole pool that the zero-start waterfall hands this goal.
+ * Used only to estimate what the goal could already have claimed when its plan
+ * began; the real attribution is recomputed afterwards from the real plans.
+ */
+function shareOfPool(
+  projections: Map<string, GoalProjection>,
+  poolByClass: Map<string, number>,
+  active: Goal[],
+  goalId: string,
+): number {
+  const poolTotal = [...poolByClass.values()].reduce((s, v) => s + v, 0);
+  if (poolTotal <= 0) return 0;
+  const { fills } = runWaterfall(
+    active.map((g) => {
+      const p = projections.get(g.id)!;
+      const capByClass = new Map<string, number>();
+      for (const [cls, frac] of p.targetAllocNow) capByClass.set(cls, p.fundedCorpus * frac);
+      return {
+        goalId: g.id,
+        monthsRemaining: p.monthsRemaining,
+        needByClass: p.targetHoldingNow,
+        capByClass,
+      };
+    }),
+    poolByClass,
+  );
+  return (fills.get(goalId)?.attributed ?? 0) / poolTotal;
+}
+
 export function analyzeGoals(
   goals: Goal[],
   allocByGoal: Map<string, GoalAllocation[]>,
   assetClasses: AssetClass[],
   poolByClass: Map<string, number>,
   nowISO: string,
+  /**
+   * Total invested market value as at a past date. Supply it (see
+   * poolValueAsOf) and each goal's planned path starts from what it could
+   * already have claimed on the day its plan began, instead of from zero.
+   *
+   * Without it the schedule ratio is meaningless for anyone who started
+   * tracking an existing portfolio — the denominator is a couple of
+   * instalments while the numerator is the whole holding — and it lurches
+   * every month as the waterfall reallocates, with no money moving.
+   */
+  poolValueAt?: (iso: string) => number,
 ): GoalsAnalysis {
   const active = goals.filter((g) => g.status === "active");
 
-  const projections = new Map(
+  // Pass 1: project from zero purely to learn each goal's SHARE of the pool.
+  const zeroProjections = new Map(
     active.map((g) => [g.id, projectGoal(g, allocByGoal.get(g.id) ?? [], assetClasses, nowISO)]),
+  );
+  const poolNow = [...poolByClass.values()].reduce((s, v) => s + v, 0);
+
+  const startCorpusOf = (g: Goal): number => {
+    if (!poolValueAt || poolNow <= 0) return 0;
+    const created = g.created_at.slice(0, 10);
+    const poolThen = poolValueAt(created);
+    if (poolThen <= 0) return 0;
+    const share = shareOfPool(zeroProjections, poolByClass, active, g.id);
+    // The goal's share of the pool is assumed to have been what it is now.
+    // That is an assumption, not a measurement — nothing records which rupee
+    // was earmarked for what — but it is far closer than assuming zero.
+    return share * poolThen;
+  };
+
+  const projections = new Map(
+    active.map((g) => [
+      g.id,
+      projectGoal(g, allocByGoal.get(g.id) ?? [], assetClasses, nowISO, startCorpusOf(g)),
+    ]),
   );
 
   const { fills, surplusByClass } = runWaterfall(
@@ -564,3 +682,174 @@ export function analyzeGoals(
 
   return { analyses, surplusByClass };
 }
+
+// ---------------------------------------------------------------------------
+// Verdicts
+// ---------------------------------------------------------------------------
+
+/**
+ * A plan younger than this has no schedule worth judging. Two months into a
+ * 33-year plan the planned corpus is two SIP instalments, so any real portfolio
+ * divides out at 40× and every goal reports "on track" — the same vacuous pass
+ * as a zero-length plan, with the sign flipped. Below this age we report what
+ * is held against the target and decline to grade the schedule.
+ */
+export const MIN_PLAN_MONTHS = 6;
+
+/** Below this share of the planned corpus a goal reads as behind, not merely near. */
+export const SLIGHTLY_BEHIND_FLOOR = 0.9;
+
+export type GoalVerdict =
+  /** No glide path — nothing to project against. */
+  | { kind: "no-plan" }
+  /** Past its date. `short` is target − attributed, 0 when met. */
+  | { kind: "due"; short: number }
+  /** Held ≥ the target itself. */
+  | { kind: "funded" }
+  /** Held ≥ the corpus that grows into the target with no further investing. */
+  | { kind: "will-fund" }
+  /**
+   * Plan too young to grade — see MIN_PLAN_MONTHS. `wouldFundItself` is worth
+   * reporting even here, but as a projection resting on the return
+   * assumptions, never as a pass.
+   */
+  | { kind: "no-history"; monthsElapsed: number; wouldFundItself: boolean }
+  | { kind: "on-track" }
+  | { kind: "slightly-behind" }
+  | { kind: "behind" };
+
+/**
+ * The single definition of how a goal is doing.
+ *
+ * Deliberately NOT `fill.onTrack` (every per-class need filled), which the two
+ * pages used to print: `need` is `plannedCorpusNow × allocation`, so a plan
+ * with no elapsed months needs nothing, and nothing is trivially satisfied.
+ * That is how Retirement showed "0.15% funded" and "on track" together.
+ */
+export function goalVerdict(a: GoalAnalysis): GoalVerdict {
+  const { projection: p, attributed, schedulePct } = a;
+  if (!p.hasPlan) return { kind: "no-plan" };
+  if (p.monthsRemaining === 0) {
+    return { kind: "due", short: Math.max(0, p.targetCorpus - attributed) };
+  }
+  // "funded" is a fact about today and rests on no assumption, so it outranks
+  // everything. "will-fund" is a projection — it asserts that what is held
+  // compounds into the target — so it must NOT outrank the no-history guard.
+  // A 33-year goal two months old was reporting "will fund itself" off ₹19.7L
+  // against ₹34.7Cr, a claim resting entirely on one typed-in rate held for
+  // three decades. That is precisely a verdict the reader cannot argue with.
+  if (attributed >= p.targetCorpus) return { kind: "funded" };
+  if (p.monthsElapsed < MIN_PLAN_MONTHS || p.plannedCorpusNow <= 0) {
+    return {
+      kind: "no-history",
+      monthsElapsed: p.monthsElapsed,
+      wouldFundItself: attributed >= p.fundedCorpus,
+    };
+  }
+  if (attributed >= p.fundedCorpus) return { kind: "will-fund" };
+  // Band on the ROUNDED percentage — the same figure the page prints. Comparing
+  // the raw ratio put a red "behind" badge next to the text "(90% of schedule)".
+  const shown = Math.round(schedulePct * 100) / 100;
+  if (shown >= 1) return { kind: "on-track" };
+  if (shown >= SLIGHTLY_BEHIND_FLOOR) return { kind: "slightly-behind" };
+  return { kind: "behind" };
+}
+
+/** Verdicts that should not read as a pass. */
+export function verdictIsShort(v: GoalVerdict): boolean {
+  return (
+    v.kind === "behind" ||
+    v.kind === "slightly-behind" ||
+    (v.kind === "due" && v.short > 0.5)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Plan summary — the one place a monthly total is added up
+// ---------------------------------------------------------------------------
+
+/**
+ * Distribute `total` across `parts` in whole rupees so the parts sum to
+ * `Math.round(total)` exactly. Rounding each part independently is what made
+ * "Required / month" print ₹72,423 in one place and a breakdown adding to
+ * ₹72,422 in another.
+ */
+export function largestRemainder<T>(
+  items: T[],
+  weight: (t: T) => number,
+  total: number,
+): Map<T, number> {
+  const out = new Map<T, number>();
+  const target = Math.round(total);
+  const sum = items.reduce((s, i) => s + weight(i), 0);
+  if (items.length === 0) return out;
+  if (sum <= 0) {
+    for (const i of items) out.set(i, 0);
+    return out;
+  }
+  const exact = items.map((i) => ({ i, v: (weight(i) / sum) * target }));
+  let assigned = 0;
+  for (const e of exact) {
+    const f = Math.floor(e.v);
+    out.set(e.i, f);
+    assigned += f;
+  }
+  const order = [...exact].sort((a, b) => (b.v - Math.floor(b.v)) - (a.v - Math.floor(a.v)));
+  for (let k = 0; k < target - assigned; k++) {
+    const e = order[k % order.length];
+    out.set(e.i, (out.get(e.i) ?? 0) + 1);
+  }
+  return out;
+}
+
+export type PlanSummary = {
+  /** Unrounded sum of every active goal's forward SIP. */
+  requiredMonthly: number;
+  /** Per asset class, in whole rupees, summing exactly to round(requiredMonthly). */
+  byClass: Map<string, number>;
+  /** Per goal id, in whole rupees, summing exactly to round(requiredMonthly). */
+  byGoal: Map<string, number>;
+  /** Goals whose verdict is not a pass. */
+  shortGoals: GoalAnalysis[];
+};
+
+/**
+ * Everything a page needs to state what the plan costs per month. Both Home and
+ * /plan read this, so the two can no longer print different totals, and the
+ * breakdowns add up to the headline by construction.
+ */
+export function planSummary(analyses: GoalAnalysis[]): PlanSummary {
+  const requiredMonthly = analyses.reduce((s, a) => s + a.requiredMonthly, 0);
+
+  const classIds = new Set<string>();
+  for (const a of analyses) for (const cls of a.requiredByClass.keys()) classIds.add(cls);
+  const classList = [...classIds];
+  const classWeight = (cls: string) =>
+    analyses.reduce((s, a) => s + (a.requiredByClass.get(cls) ?? 0), 0);
+
+  const perGoal = largestRemainder(analyses, (a) => a.requiredMonthly, requiredMonthly);
+
+  return {
+    requiredMonthly,
+    byClass: largestRemainder(classList, classWeight, requiredMonthly),
+    byGoal: new Map([...perGoal].map(([a, v]) => [a.goal.id, v])),
+    shortGoals: analyses.filter((a) => verdictIsShort(goalVerdict(a))),
+  };
+}
+
+/**
+ * The same asset classes with every expected return cut by `points` percentage
+ * points (floored at zero), for stating a verdict against a second, stated
+ * assumption. Two of this plan's largest goals sit in one asset class, so the
+ * whole answer moves with one number typed into a settings box; printing the
+ * verdict only at that number gives the reader nothing to disagree with.
+ */
+export function lowerReturns(classes: AssetClass[], points: number): AssetClass[] {
+  return classes.map((c) => ({
+    ...c,
+    expected_return: Math.max(0, Number(c.expected_return) - points),
+  }));
+}
+
+/** Percentage points knocked off every expected return for the stress case. */
+export const STRESS_POINTS = 3;

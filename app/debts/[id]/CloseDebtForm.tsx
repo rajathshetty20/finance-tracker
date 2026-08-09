@@ -3,12 +3,8 @@
 import { useState, useTransition } from "react";
 import { closeDebt } from "../actions";
 import { useGuard } from "../../useGuard";
+import { todayInAppZone } from "../../todayLocal";
 
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-}
 
 export default function CloseDebtForm({ debtId, expectedClosureAmount }: { debtId: string; expectedClosureAmount: number }) {
   const [open, setOpen] = useState(false);
@@ -55,7 +51,7 @@ export default function CloseDebtForm({ debtId, expectedClosureAmount }: { debtI
           type="date"
           name="close_date"
           required
-          defaultValue={todayISO()}
+          defaultValue={todayInAppZone()}
           className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <div className="flex gap-2">

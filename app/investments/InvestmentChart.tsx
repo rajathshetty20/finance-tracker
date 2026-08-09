@@ -161,6 +161,10 @@ export default function InvestmentChart({
             <Area
               type="monotone"
               dataKey="market"
+              // Recharts wipes a clip rect from 0 to full width on mount; when that
+              // animation does not complete the series is clipped away and the chart
+              // renders as bare axes. See app/NetworthChart.tsx.
+              isAnimationActive={false}
               name="Market"
               stroke="var(--investment)"
               strokeWidth={2.5}
@@ -171,6 +175,7 @@ export default function InvestmentChart({
             <Line
               type="monotone"
               dataKey="book"
+              isAnimationActive={false}
               name="Invested"
               stroke="var(--ink-3)"
               strokeWidth={2}

@@ -88,8 +88,10 @@ export default async function RootLayout({
             </div>
           </header>
         )}
+        {/* bg-warn-soft/50/40 carried two opacity modifiers, which Tailwind
+            does not parse — the banner had no background at all. */}
         {isDemo && (
-          <div className="border-b border-warn bg-warn-soft/50/40">
+          <div className="border-b border-warn bg-warn-soft">
             <div className="mx-auto max-w-3xl px-4 py-1.5 text-[0.75rem] text-warn">
               Read-only demo — the numbers are made up and saving is switched off.
             </div>

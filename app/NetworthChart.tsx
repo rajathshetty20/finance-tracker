@@ -32,9 +32,17 @@ function fmtFull(n: number): string {
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 }
 
+/**
+ * Axis ticks are month starts, so the day is noise: "8 Jan 24 · 8 Jun 24 ·
+ * 8 Nov 24 · 10 Sept 25" reads as arbitrary sampling rather than as a
+ * timeline. Month and year only, and "Sept" trimmed to three letters so it
+ * does not sit a character wider than every other tick.
+ */
 function fmtDateShort(ts: number): string {
   const d = new Date(ts);
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" });
+  return d
+    .toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
+    .replace("Sept ", "Sep ");
 }
 
 function fmtDateLong(ts: number): string {
@@ -115,7 +123,13 @@ export default function NetworthChart({ data }: { data: Point[] }) {
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
-              domain={["auto", "auto"]}
+              // "auto" rounds the top out to the next nice number, which put a
+              // ₹60L ceiling over data topping out at ₹42.6L and left the top
+              // third of the plot empty. Pin the top to the data with a little
+              // headroom for the marker, and keep zero as the floor so the
+              // slope of the line is not exaggerated by a cropped baseline.
+              domain={[0, (max: number) => max * 1.08]}
+              allowDecimals={false}
             />
             <Tooltip content={<ChartTooltip />} />
             {/* Stroke only. The shaded region under an area measures down to
@@ -124,6 +138,12 @@ export default function NetworthChart({ data }: { data: Point[] }) {
             <Area
               type="monotone"
               dataKey="nw"
+              // The entry animation wipes a clip rect from width 0 to full. When it
+              // does not run to completion the rect stays at 0 and the series is
+              // clipped away — axes, gridlines and legend all present, no data.
+              // A ledger chart gains nothing from a wipe; this removes the only
+              // state in which it can render blank.
+              isAnimationActive={false}
               stroke="var(--accent)"
               strokeWidth={2.5}
               fill="none"

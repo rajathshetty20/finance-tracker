@@ -7,12 +7,8 @@ import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { formatXirr } from "@/lib/xirr";
 import AddPaymentForm from "./AddPaymentForm";
 import CloseDebtForm from "./CloseDebtForm";
+import { appToday } from "@/lib/demo";
 
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-}
 
 export default async function DebtDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -52,7 +48,7 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
       ? impliedAnnualRate(Number(debt.principal), latestEmi, Number(debt.total_payable))
       : null;
 
-  const periodEnd = debt.status === "closed" && debt.closed_on ? debt.closed_on : todayISO();
+  const periodEnd = debt.status === "closed" && debt.closed_on ? debt.closed_on : await appToday();
   const entriesByInvId = new Map<string, InvestmentEntry[]>();
   for (const inv of invs) entriesByInvId.set(inv.id, []);
   for (const e of allEntries) {
@@ -64,7 +60,7 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <Link href="/debts" className="text-xs text-ink-3 hover:text-ink">← Debts</Link>
+        <Link href="/holdings" className="text-xs text-ink-3 hover:text-ink">← Holdings</Link>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold">{debt.description}</h1>
           {debt.status === "closed" && (

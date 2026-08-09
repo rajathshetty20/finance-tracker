@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { renamePhase, editFirstPhaseStartDate } from "./actions";
 import type { Phase } from "@/lib/types";
-import { fmtINR } from "@/lib/dates";
+import { fmtINR, fmtMonthYear } from "@/lib/dates";
 import { useGuard } from "../useGuard";
 
 export type PhaseStats = {
@@ -110,7 +110,8 @@ export default function PhaseRow({
               </form>
             ) : (
               <>
-                {phase.start_date} → {phase.end_date ?? "present"}
+                {fmtMonthYear(phase.start_date)} →{" "}
+                {phase.end_date ? fmtMonthYear(phase.end_date) : "present"}
                 {canEditStart && (
                   <button
                     onClick={() => setEditingStart(true)}

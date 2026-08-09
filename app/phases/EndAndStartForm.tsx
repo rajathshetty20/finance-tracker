@@ -3,12 +3,8 @@
 import { useState, useTransition } from "react";
 import { endAndStartNewPhase } from "./actions";
 import { useGuard } from "../useGuard";
+import { todayInAppZone } from "../todayLocal";
 
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-}
 
 export default function EndAndStartForm({ currentName }: { currentName: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +47,7 @@ export default function EndAndStartForm({ currentName }: { currentName: string }
           type="date"
           name="end_date"
           required
-          defaultValue={todayISO()}
+          defaultValue={todayInAppZone()}
           className="mt-1 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
       </div>

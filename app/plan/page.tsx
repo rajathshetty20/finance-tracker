@@ -1,0 +1,666 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import type {
+  AssetClass,
+  Category,
+  Debt,
+  DebtPayment,
+  Entry,
+  Goal,
+  GoalAllocation,
+  Investment,
+  InvestmentEntry,
+  Phase,
+} from "@/lib/types";
+import {
+  analyzeGoals,
+  formatMonthsLeft,
+  goalVerdict,
+  lowerReturns,
+  planSummary,
+  poolByAssetClass,
+  poolValueAsOf,
+  MIN_PLAN_MONTHS,
+  STRESS_POINTS,
+  type GoalAnalysis,
+  type GoalVerdict,
+} from "@/lib/goals";
+import { cashflowBases } from "@/lib/money";
+import { appToday } from "@/lib/demo";
+import { currentMonthStartISO, fmtINR, fmtMonthYear } from "@/lib/dates";
+import Disclose from "../Disclose";
+import CreateGoalForm from "../goals/CreateGoalForm";
+import AssetClassesEditor from "../goals/AssetClassesEditor";
+
+function fmtCompact(n: number): string {
+  const a = Math.abs(n);
+  const sign = n < 0 ? "−" : "";
+  if (a >= 1e7) return `${sign}₹${(a / 1e7).toFixed(a >= 1e8 ? 0 : 2)}Cr`;
+  if (a >= 1e5) return `${sign}₹${(a / 1e5).toFixed(a >= 1e6 ? 0 : 1)}L`;
+  if (a >= 1e3) return `${sign}₹${(a / 1e3).toFixed(0)}k`;
+  return `${sign}₹${Math.round(a)}`;
+}
+
+export default async function PlanPage() {
+  const supabase = await createClient();
+  const today = await appToday();
+
+  const [
+    { data: goalsData },
+    { data: allocData },
+    { data: classesData },
+    { data: invsData },
+    { data: entriesData },
+    { data: phasesData },
+    { data: debtsData },
+    { data: paymentsData },
+    { data: catsData },
+  ] = await Promise.all([
+    supabase.from("goals").select("*").order("end_date", { ascending: true }),
+    supabase.from("goal_allocations").select("*"),
+    supabase.from("asset_classes").select("*").order("name", { ascending: true }),
+    supabase.from("investments").select("*"),
+    supabase.from("investment_entries").select("*"),
+    supabase.from("phases").select("*").order("start_date", { ascending: false }),
+    supabase.from("debts").select("*"),
+    supabase.from("debt_payments").select("*"),
+    supabase.from("categories").select("*"),
+  ]);
+
+  const goals = (goalsData ?? []) as Goal[];
+  const allocs = (allocData ?? []) as GoalAllocation[];
+  const assetClasses = (classesData ?? []) as AssetClass[];
+  const invs = (invsData ?? []) as Investment[];
+  const allEntries = (entriesData ?? []) as InvestmentEntry[];
+  const phases = (phasesData ?? []) as Phase[];
+  const currentPhase = phases.find((p) => p.end_date === null) ?? null;
+
+  const entriesByInv = new Map<string, InvestmentEntry[]>();
+  for (const inv of invs) entriesByInv.set(inv.id, []);
+  for (const e of allEntries) entriesByInv.get(e.investment_id)?.push(e);
+
+  const allocByGoal = new Map<string, GoalAllocation[]>();
+  for (const a of allocs) {
+    const arr = allocByGoal.get(a.goal_id) ?? [];
+    arr.push(a);
+    allocByGoal.set(a.goal_id, arr);
+  }
+
+  const pool = poolByAssetClass(invs, entriesByInv);
+  const poolAt = (iso: string) => poolValueAsOf(invs, entriesByInv, iso);
+  const { analyses, surplusByClass } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today, poolAt);
+  const summary = planSummary(analyses);
+  const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
+
+  // The same figure at a stated, more pessimistic assumption. Two of the four
+  // goals sit almost entirely in one asset class, so the whole answer moves
+  // with one number typed into the box at the bottom of this page; printing it
+  // only at that number leaves nothing to disagree with.
+  const stressed = planSummary(
+    analyzeGoals(goals, allocByGoal, lowerReturns(assetClasses, STRESS_POINTS), pool, today, poolAt)
+      .analyses,
+  );
+
+  // What a month can commit — computed once, in lib/money.ts, and quoted with
+  // its base wherever it appears, so this page and Home cannot drift apart.
+  let bases = null;
+  if (currentPhase) {
+    const [{ data: incData }, { data: expData }] = await Promise.all([
+      supabase.from("incomes").select("*").eq("phase_id", currentPhase.id),
+      supabase.from("expenses").select("*").eq("phase_id", currentPhase.id),
+    ]);
+    bases = cashflowBases({
+      incomes: (incData ?? []) as Entry[],
+      expenses: (expData ?? []) as Entry[],
+      openDebts: ((debtsData ?? []) as Debt[]).filter((d) => d.status === "open"),
+      payments: (paymentsData ?? []) as DebtPayment[],
+      categories: (catsData ?? []) as Category[],
+      phaseStartISO: currentPhase.start_date,
+      todayISO: today,
+      monthStartISO: currentMonthStartISO(today),
+    });
+  }
+
+  // Round ONCE, then do the arithmetic on the rounded figures, so the numbers
+  // printed on this page subtract to the difference also printed on this page.
+  // Independently rounding each of five floats left the shown values ₹1 apart.
+  const available = bases?.salaryInvestable == null ? null : Math.round(bases.salaryInvestable);
+  const required = Math.round(summary.requiredMonthly);
+  const requiredStressed = Math.round(stressed.requiredMonthly);
+  const headroom = available !== null ? available - required : null;
+  const stressHeadroom = available !== null ? available - requiredStressed : null;
+
+  // Goals whose forward SIP is zero contribute nothing to the headline. Two of
+  // them can be the largest goals on the page, and the card used to drop the
+  // "invest …/mo" line entirely, so they vanished from the number to act on.
+  // The same subtraction at the median month. A single laptop-and-phone month
+  // can move the mean enough to flip Yes to No, and the disclosure that said so
+  // was 11px grey text under a verdict it contradicted.
+  const atMedian =
+    bases && bases.inhandSalary !== null
+      ? Math.round(bases.inhandSalary - bases.medianExpense - bases.emiTotal)
+      : null;
+
+  const selfFunding = analyses.filter(
+    (a) => Math.round(a.requiredMonthly) === 0 && a.projection.hasPlan,
+  );
+
+  const totalPool = [...pool.values()].reduce((s, v) => s + v, 0);
+  const inactive = goals.filter((g) => g.status !== "active");
+
+  // A class shows up in "unclaimed" for two different reasons and the engine
+  // reports them identically. Distinguishing them matters: one is "your goals
+  // are full", the other is "nothing you are saving for wants this".
+  const targetedClasses = new Set<string>();
+  for (const a of analyses) for (const c of a.projection.targetAllocNow.keys()) targetedClasses.add(c);
+  const unclaimed = [...surplusByClass.entries()]
+    .filter(([, amt]) => amt > 0.5)
+    .map(([cls, amt]) => ({
+      name: classNameById.get(cls) ?? "—",
+      amt,
+      targeted: targetedClasses.has(cls),
+    }))
+    .sort((x, y) => y.amt - x.amt);
+  const unclaimedTotal = unclaimed.reduce((s, r) => s + r.amt, 0);
+
+  const byDueDate = [...analyses].sort(
+    (a, b) => a.projection.monthsRemaining - b.projection.monthsRemaining,
+  );
+  // Same-date goals are filled in UUID order, which is not something a reader
+  // could ever predict; say so rather than presenting it as a due-date rule.
+  const tiedDueDates = new Set(
+    byDueDate
+      .map((a) => a.goal.end_date)
+      .filter((d, i, arr) => arr.indexOf(d) !== i),
+  );
+
+  const monthlyByClass = [...summary.byClass.entries()]
+    .map(([cls, amt]) => ({ name: classNameById.get(cls) ?? "—", amt, poolNow: pool.get(cls) ?? 0 }))
+    .filter((r) => r.amt > 0)
+    .sort((x, y) => y.amt - x.amt);
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Plan</h1>
+        <p className="text-sm text-ink-3">
+          Will you get what you&apos;re saving for? Goals claim from one shared
+          investment pool — they never touch cash or net worth.
+        </p>
+      </header>
+
+      {/* ── The verdict, first thing on the screen ───────────────────────── */}
+      {analyses.length > 0 && (
+        <section className="rounded-xl border border-rule bg-surface p-5">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+            The plan needs, per month
+          </div>
+          <div className="mt-1 text-[2.6rem] font-semibold leading-none tabular-nums">
+            {fmtINR(required)}
+          </div>
+          <p className="mt-1 text-[0.8125rem] text-ink-3">
+            across{" "}
+            {selfFunding.length > 0
+              ? `${analyses.length - selfFunding.length} of ${analyses.length}`
+              : analyses.length}{" "}
+            active goal{analyses.length === 1 ? "" : "s"}, stepping up 10% a year.
+            {selfFunding.length > 0 && (
+              <>
+                {" "}
+                {selfFunding.map((a) => a.goal.name).join(" and ")}{" "}
+                {selfFunding.length === 1 ? "asks" : "ask"} for nothing further — what{" "}
+                {selfFunding.length === 1 ? "it holds" : "they hold"} is already projected to reach{" "}
+                {selfFunding.length === 1 ? "its" : "their"} target at the assumed returns, so{" "}
+                {selfFunding.length === 1 ? "it adds" : "they add"} ₹0 to this figure.
+              </>
+            )}
+          </p>
+
+          {available !== null && headroom !== null && bases ? (
+            <>
+              <div
+                className={`mt-4 rounded-lg border p-3 text-sm ${
+                  headroom >= 0 ? "border-up/30 bg-up/[0.07]" : "border-down/30 bg-down/[0.07]"
+                }`}
+              >
+                {headroom >= 0 ? (
+                  <>
+                    <span className="font-semibold">Yes.</span> Salary leaves{" "}
+                    <span className="font-semibold tabular-nums">{fmtINR(available)}</span> a month —{" "}
+                    <span className="font-semibold tabular-nums text-up">{fmtINR(headroom)}</span> to
+                    spare.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">No.</span> Salary leaves{" "}
+                    <span className="font-semibold tabular-nums">{fmtINR(available)}</span> a month,{" "}
+                    <span className="font-semibold tabular-nums text-down">
+                      {fmtINR(Math.abs(headroom))}
+                    </span>{" "}
+                    short of what the plan asks for.
+                    {summary.shortGoals.length > 0 && (
+                      <>
+                        {" "}
+                        Behind schedule:{" "}
+                        {summary.shortGoals.map((a, i) => (
+                          <span key={a.goal.id}>
+                            {i > 0 && ", "}
+                            <Link href={`/goals/${a.goal.id}`} className="underline">
+                              {a.goal.name}
+                            </Link>
+                          </span>
+                        ))}
+                        .
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <p className="mt-3 font-mono text-[0.6875rem] leading-relaxed tabular-nums text-ink-3">
+                in-hand {fmtINR(bases.inhandSalary ?? 0)} − typical month&apos;s spending{" "}
+                {fmtINR(bases.avgExpense)} − EMI {fmtINR(bases.emiTotal)} = {fmtINR(available)}
+              </p>
+              <p className="mt-1 text-[0.6875rem] text-ink-3">
+                Spending is the mean of {bases.completedMonths} completed month
+                {bases.completedMonths === 1 ? "" : "s"} in {currentPhase?.name}
+                {bases.medianExpense > 0 &&
+                  Math.abs(bases.medianExpense - bases.avgExpense) > 1 && (
+                    <> — the middle month was {fmtINR(bases.medianExpense)}</>
+                  )}
+                . EMI is inferred from each open loan&apos;s last payment. Salary excludes bonus and
+                freelance, which a standing SIP cannot rely on.
+              </p>
+              {bases.outlierMonth && atMedian !== null && (
+                <p className="mt-1 rounded-lg border border-warn/30 bg-warn-soft/50 p-2 text-[0.75rem] text-ink-2">
+                  <span className="font-medium text-ink">
+                    {atMedian - required >= 0 === headroom! >= 0
+                      ? "At your median month the answer is the same."
+                      : `At your median month this verdict flips to ${atMedian - required >= 0 ? "Yes" : "No"}.`}
+                  </span>{" "}
+                  Using {fmtINR(bases.medianExpense)} instead of the {fmtINR(bases.avgExpense)} mean
+                  leaves {fmtINR(atMedian)} —{" "}
+                  {atMedian - required >= 0
+                    ? `${fmtINR(atMedian - required)} to spare`
+                    : `${fmtINR(required - atMedian)} short`}
+                  . The mean is the safer figure to plan against; the gap between them is one
+                  unusual month.
+                </p>
+              )}
+              {bases.outlierMonth && (
+                <p className="mt-1 text-[0.6875rem] text-warn">
+                  {new Date(bases.outlierMonth.month + "-01").toLocaleDateString("en-GB", {
+                    month: "long",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  })}{" "}
+                  alone ({fmtINR(bases.outlierMonth.spent)}) lifts that mean by{" "}
+                  {fmtINR(bases.outlierMonth.liftsAverageBy)} a month.
+                </p>
+              )}
+
+              {/* Sensitivity: the same verdict at a stated, worse assumption. */}
+              <div className="mt-3 border-t border-rule-soft pt-3">
+                <p className="text-[0.8125rem] text-ink-2">
+                  <span className="font-medium text-ink">If returns come in {STRESS_POINTS} points lower</span>{" "}
+                  across every asset class ({[...assetClasses]
+                    .filter((c) => Number(c.expected_return) > 0)
+                    .sort((a, b) => (pool.get(b.id) ?? 0) - (pool.get(a.id) ?? 0))
+                    .slice(0, 2)
+                    .map((c) => `${c.name} ${Number(c.expected_return)}→${Math.max(0, Number(c.expected_return) - STRESS_POINTS)}%`)
+                    .join(", ")}
+                  ), the plan needs{" "}
+                  <span className="font-semibold tabular-nums">{fmtINR(requiredStressed)}</span>{" "}
+                  —{" "}
+                  {stressHeadroom !== null && stressHeadroom >= 0 ? (
+                    <span className="tabular-nums text-up">
+                      still affordable, {fmtINR(stressHeadroom)} to spare
+                    </span>
+                  ) : (
+                    <span className="tabular-nums text-down">
+                      short by {fmtINR(Math.abs(stressHeadroom ?? 0))}
+                    </span>
+                  )}
+                  .
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-ink-3">
+              Log a completed month of income and spending and this page can say whether the plan is
+              affordable.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ── Per-goal ─────────────────────────────────────────────────────── */}
+      {analyses.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
+          No active goals yet. Add one below.
+        </p>
+      ) : (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-ink-3">Goals, soonest first</h2>
+          {byDueDate.map((a) => (
+            <GoalCard
+              key={a.goal.id}
+              a={a}
+              monthly={summary.byGoal.get(a.goal.id) ?? 0}
+              tiedDate={tiedDueDates.has(a.goal.end_date)}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* ── Where the pool actually went ─────────────────────────────────── */}
+      {analyses.length > 0 && totalPool > 0 && (
+        <section className="rounded-xl border border-rule bg-surface p-4">
+          <h2 className="text-sm font-medium text-ink-3">How the pool is shared</h2>
+          <p className="mt-0.5 text-xs text-ink-3">
+            {fmtCompact(totalPool)} invested is claimed by whichever goal is due soonest, asset class
+            by asset class. A goal decades away is only entitled to what its own plan expects it to
+            hold by now — which is why it can look almost empty while being on schedule.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {byDueDate.map((a) => (
+              <li key={a.goal.id} className="grid grid-cols-[1fr_auto] gap-x-3 text-[0.8125rem]">
+                <span className="truncate">
+                  {a.goal.name}
+                  <span className="ml-2 text-ink-3">{fmtMonthYear(a.goal.end_date)}</span>
+                </span>
+                <span className="tabular-nums">{fmtINR(a.attributed)}</span>
+                <span className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                  <span
+                    className="block h-full rounded-full bg-accent"
+                    style={{ width: `${Math.max(0.5, (a.attributed / totalPool) * 100)}%` }}
+                  />
+                </span>
+              </li>
+            ))}
+            {unclaimed.map((r) => (
+              <li key={r.name} className="grid grid-cols-[1fr_auto] gap-x-3 text-[0.8125rem]">
+                <span className="truncate text-ink-2">
+                  Unclaimed — {r.name}
+                  <span className="ml-2 text-ink-3">
+                    {r.targeted ? "every goal already full" : "no goal targets this class"}
+                  </span>
+                </span>
+                <span className="tabular-nums text-ink-2">{fmtINR(r.amt)}</span>
+                <span className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                  <span
+                    className="block h-full rounded-full bg-ink-3"
+                    style={{ width: `${Math.max(0.5, (r.amt / totalPool) * 100)}%` }}
+                  />
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+            {fmtINR(totalPool - unclaimedTotal)} claimed + {fmtINR(unclaimedTotal)} unclaimed ={" "}
+            {fmtINR(totalPool)} invested
+          </p>
+          {tiedDueDates.size > 0 && (
+            <p className="mt-1 text-[0.6875rem] text-warn">
+              {tiedDueDates.size === 1 ? "Two goals share a target date" : `${tiedDueDates.size} pairs of goals share a target date`}
+              . Which of them is filled first is decided by their internal id, not by anything you
+              set — move one of the dates if the order matters.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ── Where the monthly money should go ────────────────────────────── */}
+      {monthlyByClass.length > 0 && (
+        <section className="rounded-xl border border-rule bg-surface p-4">
+          <h2 className="text-sm font-medium text-ink-3">Where the monthly money goes</h2>
+          <p className="mt-0.5 text-xs text-ink-3">
+            {fmtINR(required)} split across the classes still short of their target.
+          </p>
+          <ul className="mt-3 divide-y divide-rule-soft">
+            {monthlyByClass.map((r) => (
+              <li key={r.name} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+                <span className="truncate">
+                  {r.name}
+                  <span className="ml-2 text-xs text-ink-3">holding {fmtCompact(r.poolNow)}</span>
+                </span>
+                <span className="shrink-0 font-medium tabular-nums">{fmtINR(r.amt)}/mo</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {inactive.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Achieved / archived</h2>
+          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
+            {inactive.map((g) => (
+              <li key={g.id}>
+                <Link
+                  href={`/goals/${g.id}`}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-surface-2"
+                >
+                  <span className="text-sm text-ink-2">{g.name}</span>
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
+                    {g.status}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <Disclose label="Add a goal" tone="primary">
+          <CreateGoalForm />
+        </Disclose>
+      </section>
+
+      {/* ── The numbers every verdict above rests on ─────────────────────── */}
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <h2 className="text-sm font-medium text-ink-3">Assumptions this plan rests on</h2>
+        <p className="mt-0.5 text-xs text-ink-3">
+          Every projection above is a function of these. Change one and the verdict changes with it.
+        </p>
+        <div className="mt-3">
+          <AssetClassesEditor assetClasses={assetClasses} />
+        </div>
+        {analyses.length > 0 && (
+          <ul className="mt-4 divide-y divide-rule-soft border-t border-rule pt-1">
+            {analyses.map((a) => (
+              <li
+                key={a.goal.id}
+                className="flex flex-col gap-0.5 py-1.5 text-[0.8125rem] sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
+              >
+                {/* Stacked below sm: side by side, `truncate` clipped these
+                    names to a single letter on a phone. */}
+                <span className="truncate text-ink-2">{a.goal.name}</span>
+                {/* NOT "today": targetCorpus inflates present_cost from the
+                    goal's creation date, which is the anchor the plan was
+                    priced at. Labelling it "today" made the arithmetic look
+                    wrong to anyone who checked it — 4Cr at 6% to 2052 is
+                    ₹17.9Cr from today but ₹20.7Cr from Feb 2024. */}
+                <span className="shrink-0 tabular-nums text-ink-3">
+                  {Number(a.goal.inflation_rate)}% inflation ·{" "}
+                  {fmtINR(Number(a.goal.present_cost))} at {fmtMonthYear(a.goal.created_at.slice(0, 10))}{" "}
+                  prices → {fmtCompact(a.projection.targetCorpus)} by {fmtMonthYear(a.goal.end_date)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+const BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
+  "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
+  due: { label: "due now", cls: "bg-warn-soft text-warn" },
+  funded: { label: "funded", cls: "bg-up-soft text-up" },
+  // Neutral, not green: it is a projection over decades, not an achievement.
+  "will-fund": { label: "on assumptions, funded", cls: "bg-surface-2 text-ink-2" },
+  "no-history": { label: "no history yet", cls: "bg-surface-2 text-ink-2" },
+  "on-track": { label: "on track", cls: "bg-up-soft text-up" },
+  "slightly-behind": { label: "slightly behind", cls: "bg-warn-soft text-warn" },
+  behind: { label: "behind", cls: "bg-down-soft text-down" },
+};
+
+function GoalCard({
+  a,
+  monthly,
+  tiedDate,
+}: {
+  a: GoalAnalysis;
+  monthly: number;
+  tiedDate: boolean;
+}) {
+  const { goal, projection: p, attributed } = a;
+  const v = goalVerdict(a);
+  const badge = BADGE[v.kind];
+
+  const fundedPct = p.targetCorpus > 0 ? (attributed / p.targetCorpus) * 100 : 0;
+  // The bar measures progress against SCHEDULE, not against the final target.
+  // Against the target, a 2052 goal renders a 0.7% sliver directly above a
+  // sentence reading "90% of schedule" — the two disagree violently, and the
+  // bar would stay visually empty for the next twenty years. Funded-vs-target
+  // is still reported, as a figure, on the line below.
+  const gradeable = v.kind !== "no-plan" && v.kind !== "no-history";
+  const schedulePct = p.plannedCorpusNow > 0 ? (attributed / p.plannedCorpusNow) * 100 : 0;
+  const barPct = gradeable ? Math.min(100, schedulePct) : Math.min(100, fundedPct);
+  const overshoot = gradeable && schedulePct > 100;
+  const barTone =
+    v.kind === "behind" ? "bg-down" : v.kind === "slightly-behind" ? "bg-warn" : "bg-up";
+
+  return (
+    <div className="rounded-xl border border-rule bg-surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <Link href={`/goals/${goal.id}`} className="min-w-0 hover:underline">
+          <div className="truncate text-sm font-medium">{goal.name}</div>
+          <div className="mt-0.5 text-xs text-ink-3">
+            {fmtMonthYear(goal.end_date)} ·{" "}
+            {p.monthsRemaining === 0 ? "due now" : `${formatMonthsLeft(p.monthsRemaining)} left`}
+            {tiedDate && <span className="ml-1 text-warn">· shares its date</span>}
+          </div>
+        </Link>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.cls}`}
+        >
+          {badge.label}
+        </span>
+      </div>
+
+      <div className="mt-3">
+        <div className="flex items-baseline justify-between text-[0.6875rem] text-ink-3">
+          <span>{gradeable ? "against what the plan expects by now" : "against the final target"}</span>
+          <span className="tabular-nums">
+            {gradeable ? `${Math.round(schedulePct)}%` : `${fundedPct.toFixed(1)}%`}
+          </span>
+        </div>
+        <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
+          <div
+            className={`h-full rounded-full ${barTone}`}
+            style={{ width: `${Math.max(attributed > 0 ? 1.5 : 0, barPct)}%` }}
+          />
+        </div>
+        {overshoot && (
+          <p className="mt-0.5 text-[0.6875rem] text-ink-3">
+            Bar caps at 100% — actually {Math.round(schedulePct)}% of the expected corpus.
+          </p>
+        )}
+      </div>
+
+      <p className="mt-2 text-[0.8125rem] text-ink-2">
+        <VerdictLine a={a} v={v} />
+      </p>
+
+      <p className="mt-1.5 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+        holds {fmtINR(attributed)} · {fundedPct.toFixed(1)}% of the{" "}
+        {fmtCompact(p.targetCorpus)} final target
+        {monthly > 0 ? (
+          <> · invest {fmtINR(monthly)}/mo</>
+        ) : (
+          v.kind !== "no-plan" && <> · asks for ₹0/mo at the assumed returns</>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** One sentence per verdict, each naming the number it is derived from. */
+function VerdictLine({ a, v }: { a: GoalAnalysis; v: GoalVerdict }) {
+  const { projection: p, attributed, schedulePct } = a;
+  switch (v.kind) {
+    case "no-plan":
+      return (
+        <>
+          No glide path set, so there is nothing to project against.{" "}
+          <Link href={`/goals/${a.goal.id}`} className="underline">
+            Set one
+          </Link>
+          .
+        </>
+      );
+    case "due":
+      return v.short > 0.5 ? (
+        <>
+          Due now and short {fmtINR(v.short)} — holds {fmtINR(attributed)} of the{" "}
+          {fmtINR(p.targetCorpus)} needed.
+        </>
+      ) : (
+        <>Due now and met — holds {fmtINR(attributed)} against {fmtINR(p.targetCorpus)}.</>
+      );
+    case "funded":
+      return (
+        <>
+          Funded — {fmtINR(attributed)} held against the {fmtCompact(p.targetCorpus)} this goal
+          needs.
+        </>
+      );
+    case "will-fund":
+      return (
+        <>
+          Needs nothing further <em>if the assumptions hold</em> — {fmtINR(attributed)} compounds
+          into {fmtCompact(p.targetCorpus)} by {fmtMonthYear(a.goal.end_date)}, a{" "}
+          {(p.targetCorpus / Math.max(1, attributed)).toFixed(1)}× multiple over{" "}
+          {formatMonthsLeft(p.monthsRemaining)}. That claim is only as good as the rates at the
+          bottom of this page.
+        </>
+      );
+    case "no-history":
+      return (
+        <>
+          This plan is {v.monthsElapsed} month{v.monthsElapsed === 1 ? "" : "s"} old — too little to
+          judge against its schedule, so no grade is given until it is {MIN_PLAN_MONTHS} months.
+          Right now it holds {fmtINR(attributed)} of {fmtCompact(p.targetCorpus)}.
+          {v.wouldFundItself && (
+            <>
+              {" "}
+              At the assumed returns what is already there would reach the target on its own — a{" "}
+              {(p.targetCorpus / Math.max(1, attributed)).toFixed(1)}× multiple over{" "}
+              {formatMonthsLeft(p.monthsRemaining)}, which is a projection, not a result.
+            </>
+          )}
+        </>
+      );
+    case "on-track":
+      return (
+        <>
+          On track — holds {fmtINR(attributed)}, and the plan expects{" "}
+          {fmtINR(p.plannedCorpusNow)} by now ({Math.round(schedulePct * 100)}% of schedule).
+        </>
+      );
+    case "slightly-behind":
+    case "behind":
+      return (
+        <>
+          {v.kind === "behind" ? "Behind" : "Slightly behind"} — holds {fmtINR(attributed)} against
+          the {fmtINR(p.plannedCorpusNow)} the plan expects by now (
+          {Math.round(schedulePct * 100)}% of schedule), a gap of{" "}
+          {fmtINR(p.plannedCorpusNow - attributed)}.
+        </>
+      );
+  }
+}

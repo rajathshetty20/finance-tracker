@@ -5,7 +5,9 @@ import { DEMO_WRITE_ERROR, isDemoWriteBlocked } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 
 const TABLE = "expenses";
-const ROUTE = "/expenses";
+// The ledger now lives on /cashflow; the old route still resolves (it
+// redirects), so both are revalidated after a write.
+const ROUTES = ["/expenses", "/cashflow", "/"];
 
 export async function createExpense(formData: FormData) {
   if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
@@ -43,7 +45,7 @@ export async function createExpense(formData: FormData) {
   });
   if (error) return { error: error.message };
 
-  revalidatePath(ROUTE);
+  for (const r of ROUTES) revalidatePath(r);
   return { ok: true };
 }
 
@@ -79,7 +81,7 @@ export async function updateExpense(formData: FormData) {
     .eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath(ROUTE);
+  for (const r of ROUTES) revalidatePath(r);
   return { ok: true };
 }
 
@@ -101,6 +103,6 @@ export async function deleteExpense(formData: FormData) {
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath(ROUTE);
+  for (const r of ROUTES) revalidatePath(r);
   return { ok: true };
 }

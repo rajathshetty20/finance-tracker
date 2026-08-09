@@ -3,12 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { addInvestmentEntry } from "../actions";
 import { useGuard } from "../../useGuard";
+import { todayInAppZone } from "../../todayLocal";
 
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
-}
 
 export default function AddEntryForm({ investmentId }: { investmentId: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +53,7 @@ export default function AddEntryForm({ investmentId }: { investmentId: string })
           type="date"
           name="date"
           required
-          defaultValue={todayISO()}
+          defaultValue={todayInAppZone()}
           className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
         />
         <input

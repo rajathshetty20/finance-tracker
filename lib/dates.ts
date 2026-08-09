@@ -31,8 +31,13 @@ export function fmtINR(n: number): string {
   return `${sign}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 }
 
-export function currentMonthStartISO(): string {
-  return todayISO().slice(0, 7) + "-01";
+/**
+ * First of the month containing `today`. Takes the day explicitly so callers
+ * that have resolved it once — the demo freezes it, see lib/demo.ts — cannot
+ * end up with a month boundary from a different clock than their other figures.
+ */
+export function currentMonthStartISO(today: string = todayISO()): string {
+  return today.slice(0, 7) + "-01";
 }
 
 // "2025-03-01" -> "Mar 2025". Phase and goal dates are stored as plain dates,
@@ -41,9 +46,13 @@ export function currentMonthStartISO(): string {
 export function fmtMonthYear(iso: string): string {
   const [y, m] = iso.split("-").map(Number);
   if (!y || !m) return iso;
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", {
+  const s = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", {
     month: "short",
     year: "numeric",
     timeZone: "UTC",
   });
+  // en-GB abbreviates September as "Sept", so a column of dates reads
+  // "Sept 2026" beside "Dec 2027" — one four-letter month among three-letter
+  // ones, which looks like a typo rather than a locale.
+  return s.replace("Sept ", "Sep ");
 }

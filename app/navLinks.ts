@@ -1,15 +1,4 @@
-import {
-  Banknote,
-  CreditCard,
-  Home,
-  Layers,
-  LineChart,
-  Settings,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  type LucideIcon,
-} from "lucide-react";
+import { Home, Layers, Settings, Target, Wallet, ArrowLeftRight, type LucideIcon } from "lucide-react";
 import type { Domain } from "./ui";
 
 export type NavLink = {
@@ -21,21 +10,36 @@ export type NavLink = {
   primary?: boolean;
 };
 
-// Nine destinations cannot all be thumb-reachable. The four you touch daily
-// get the bar; the rest are one tap away behind More, which keeps the bar
-// readable instead of nine cramped icons.
+/**
+ * Four destinations, one per question the app answers:
+ *   Home      — where do I stand?
+ *   Cashflow  — where does the money go, and does it reach the investments?
+ *   Holdings  — what do I own and owe?
+ *   Plan      — will I get what I'm saving for?
+ *
+ * Nine destinations named after tables (Expenses, Incomes, Investments, Debts,
+ * Cash, Money sources…) asked the reader to know the schema before they could
+ * find anything. There is deliberately no global "+": with seven object types
+ * it adds a decision to the most frequent action, so each screen collapses its
+ * own add-form in place instead.
+ *
+ * Money sources is not in the bar. It is an audit trail, reached from the
+ * balance check on Home, which is the only moment anyone wants it.
+ */
 export const NAV_LINKS: NavLink[] = [
   { href: "/", label: "Home", icon: Home, primary: true },
-  { href: "/expenses", label: "Expenses", icon: TrendingDown, domain: "expense", primary: true },
-  { href: "/incomes", label: "Incomes", icon: TrendingUp, domain: "income", primary: true },
-  { href: "/investments", label: "Investments", icon: LineChart, domain: "investment", primary: true },
-  { href: "/goals", label: "Goals", icon: Target, domain: "goal" },
-  { href: "/debts", label: "Debts", icon: CreditCard, domain: "debt" },
-  { href: "/cash", label: "Cash", icon: Banknote, domain: "cash" },
+  { href: "/cashflow", label: "Cashflow", icon: ArrowLeftRight, domain: "expense", primary: true },
+  { href: "/holdings", label: "Holdings", icon: Wallet, domain: "investment", primary: true },
+  { href: "/plan", label: "Plan", icon: Target, domain: "goal", primary: true },
   { href: "/money-sources", label: "Money sources", icon: Layers },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+/**
+ * Segment-wise match, never a raw prefix: `"/cashflow".startsWith("/cash")` is
+ * true, which lit the Cash tab whenever the ledger was open.
+ */
 export function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
 }

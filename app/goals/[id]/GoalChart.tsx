@@ -108,8 +108,8 @@ export default function GoalChart({
             />
             <Tooltip content={<ChartTooltip />} />
             <Legend verticalAlign="top" height={24} iconType="plainline" wrapperStyle={{ fontSize: 11, color: "var(--ink-3)" }} />
-            <Area type="monotone" dataKey="planned" name="Planned" stroke="var(--goal)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
-            <Line type="monotone" dataKey="target" name="Target" stroke="var(--ink-3)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+            <Area isAnimationActive={false} type="monotone" dataKey="planned" name="Planned" stroke="var(--goal)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
+            <Line isAnimationActive={false} type="monotone" dataKey="target" name="Target" stroke="var(--ink-3)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
             <ReferenceDot
               x={clampedTs}
               y={attributed}
