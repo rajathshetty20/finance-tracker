@@ -92,12 +92,12 @@ begin
 
   -- ── Phases ─────────────────────────────────────────────────────────────
   insert into public.phases (user_id, name, start_date, end_date, notes)
-  values (u_id, 'SDE1 — Google', base, pb - 1,
+  values (u_id, 'SDE-1 at Company 1', base, pb - 1,
           null)
   returning id into p1;
 
   insert into public.phases (user_id, name, start_date, notes)
-  values (u_id, 'SDE2 — Meta', pb, null)
+  values (u_id, 'SDE-2 at Company 2', pb, null)
   returning id into p2;
 
   -- ── Categories ─────────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ begin
     amt := case when d < pb then 38000 else 52000 end;
     insert into public.expenses (user_id, phase_id, category_id, date, amount, note)
     values (u_id, ph_id, cat_rent, d + 1, amt,
-            case when d = pb then 'Moved to Indiranagar — bigger flat, closer to office' end);
+            case when d = pb then 'Moved — bigger flat, closer to office' end);
     if ph_id = p1 then p1_exp := p1_exp + amt; else p2_exp := p2_exp + amt; end if;
 
     -- Everything else in the month.
@@ -267,7 +267,7 @@ begin
       (cat_shopping, 18,  8,  6800::numeric, null),
       (cat_shopping, 25, 19, 15200::numeric, 'Festive season'),
       (cat_shopping, 31, 11,  8400::numeric, null),
-      (cat_shopping, 33, 14, 145000::numeric, 'MacBook Pro + iPhone — work setup refresh'),
+      (cat_shopping, 33, 14, 145000::numeric, 'Laptop and phone — work setup refresh'),
       (cat_health,   10, 10, 18500::numeric, 'Health insurance premium'),
       (cat_health,   22, 10, 19800::numeric, 'Health insurance premium'),
       (cat_health,   34, 10, 21200::numeric, 'Health insurance premium'),
@@ -406,10 +406,10 @@ begin
   -- Close-out mirrors app/investments/actions.ts: final withdrawal with
   -- total_value_after = 0, then a realized_gain source of proceeds − book.
   insert into public.investments (user_id, name, asset_class_id, status, opened_on, closed_on, notes)
-  values (u_id, 'Google ESOPs', ac_eq, 'closed',
+  values (u_id, 'Company 1 ESOPs', ac_eq, 'closed',
           (base + make_interval(months => 3))::date,
           (base + make_interval(months => 21, days => 19))::date,
-          'Google vested options')
+          'Vested options from the first job')
   returning id into inv_esop;
   insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note) values
     (u_id, inv_esop, (base + make_interval(months => 3))::date,            'contribution', 150000, 150000, 'Exercised vested options'),
@@ -418,13 +418,13 @@ begin
     (u_id, inv_esop, (base + make_interval(months => 21))::date,           'valuation',    0,      235000, null),
     (u_id, inv_esop, (base + make_interval(months => 21, days => 19))::date, 'withdrawal', 240000, 0,      'Close-out');
   insert into public.money_sources (user_id, name, amount, date, kind, investment_id)
-  values (u_id, 'Gain from Google ESOPs', 90000, (base + make_interval(months => 21, days => 19))::date, 'realized_gain', inv_esop);
+  values (u_id, 'Gain from Company 1 ESOPs', 90000, (base + make_interval(months => 21, days => 19))::date, 'realized_gain', inv_esop);
   ms_total := ms_total + 90000;
 
-  -- ── Debt 1: phone EMI — fully paid off (closed) ────────────────────────
+  -- ── Debt 1: phone on EMI — fully paid off (closed) ─────────────────────
   -- Closure mirrors app/debts/actions.ts: amount = principal − Σ payments.
   insert into public.debts (user_id, description, principal, total_payable, start_date, status, closed_on)
-  values (u_id, 'iPhone 15 EMI', 80000, 86004,
+  values (u_id, 'Phone on EMI', 80000, 86004,
           (base + make_interval(months => 5, days => 4))::date, 'closed',
           (base + make_interval(months => 17, days => 4))::date)
   returning id into debt_phone;
@@ -434,13 +434,13 @@ begin
     values (u_id, debt_phone, d, 7167, 'EMI');
   end loop;
   insert into public.money_sources (user_id, name, amount, date, kind, debt_id)
-  values (u_id, 'Interest realized on iPhone 15 EMI', 80000 - 86004,
+  values (u_id, 'Interest realized on the phone EMI', 80000 - 86004,
           (base + make_interval(months => 17, days => 4))::date, 'debt_closure', debt_phone);
   ms_total := ms_total + (80000 - 86004);
 
   -- ── Debt 2: car loan — open, 13 EMIs paid ──────────────────────────────
   insert into public.debts (user_id, description, principal, total_payable, start_date)
-  values (u_id, 'Car loan — Hyundai Creta — 36 EMIs @ 9.2% (incl. ₹9k processing fee)', 500000, 572400,
+  values (u_id, 'Car loan — 36 EMIs @ 9.2% (incl. ₹9k processing fee)', 500000, 572400,
           (base + make_interval(months => 21, days => 9))::date)
   returning id into debt_car;
   for m in 0..12 loop
@@ -462,7 +462,7 @@ begin
   -- Phase rollover, exactly as app/phases/actions.ts computes it.
   -- (Excluded from ms_total: the cash identity skips phase_rollover rows.)
   insert into public.money_sources (user_id, name, amount, date, kind, phase_id)
-  values (u_id, 'Rollover from SDE1 — Google', p1_inc - p1_exp, pb - 1, 'phase_rollover', p1);
+  values (u_id, 'Rollover from SDE-1 at Company 1', p1_inc - p1_exp, pb - 1, 'phase_rollover', p1);
 
   -- ── Cash balances — derived from the net-worth identity so it reconciles:
   --    cash = money_sources(excl rollover) + Σ(income−expense) − open book + open principal outstanding

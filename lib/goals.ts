@@ -42,38 +42,7 @@ export function marketValueOf(inv: Investment, entries: InvestmentEntry[]): numb
   return latest ? Number(latest.total_value_after) : 0;
 }
 
-/**
- * Market value of one investment as at `iso` — the latest valuation on or
- * before that date, or 0 if it had not opened yet or was already closed.
- */
-export function marketValueAsOf(
-  inv: Investment,
-  entries: InvestmentEntry[],
-  iso: string,
-): number {
-  if (inv.status === "closed" && inv.closed_on && inv.closed_on <= iso) return 0;
-  let latest: InvestmentEntry | null = null;
-  for (const e of entries) {
-    if (e.date > iso) continue;
-    if (
-      !latest ||
-      e.date > latest.date ||
-      (e.date === latest.date && e.created_at > latest.created_at)
-    ) {
-      latest = e;
-    }
-  }
-  return latest ? Number(latest.total_value_after) : 0;
-}
 
-/** Total invested market value as at `iso`. */
-export function poolValueAsOf(
-  invs: Investment[],
-  entriesByInv: Map<string, InvestmentEntry[]>,
-  iso: string,
-): number {
-  return invs.reduce((a, inv) => a + marketValueAsOf(inv, entriesByInv.get(inv.id) ?? [], iso), 0);
-}
 
 /** Market value of all open investments, grouped by asset class id. */
 export function poolByAssetClass(
@@ -112,10 +81,6 @@ function monthlyRate(annualPct: number): number {
 
 /** Assumed annual step-up in the monthly SIP (10% — contributions grow each year). */
 export const STEP_UP_RATE = 0.1;
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, n));
-}
 
 // ---------------------------------------------------------------------------
 // Glide path
@@ -249,14 +214,19 @@ function solveSIP(
 
 export type GoalProjection = {
   hasPlan: boolean;
-  totalMonths: number; // created_at → end_date
-  monthsElapsed: number; // created_at → now, clamped to [0, totalMonths]
   monthsRemaining: number; // now → end_date
-  targetCorpus: number;
-  plannedCorpusNow: number; // on-track corpus today, per the goal's own SIP plan
-  fundedCorpus: number; // corpus today that fully funds the goal with zero further SIP
-  baselineSIP: number; // SIP that was required at creation (defines the planned path)
-  targetHoldingNow: Map<string, number>; // per asset class amount the goal needs now
+  targetCorpus: number; // today's cost inflated to the goal date
+  /**
+   * The corpus that, held today and left alone, reaches targetCorpus by the
+   * goal's date at the assumed returns. This is what the goal NEEDS.
+   *
+   * It replaces a simulated SIP path that started at ₹0 on the day the goal
+   * row was inserted. That made "on track" depend on when you happened to
+   * create the goal rather than on what you hold — a two-month-old plan needed
+   * almost nothing, so any real portfolio passed trivially.
+   */
+  fundedCorpus: number;
+  targetHoldingNow: Map<string, number>; // fundedCorpus split by the glide path
   targetAllocNow: Map<string, number>; // per asset class target fraction (0..1) right now
 };
 
@@ -271,71 +241,39 @@ export function projectGoal(
   allocations: GoalAllocation[],
   assetClasses: AssetClass[],
   nowISO: string,
-  /**
-   * Corpus this goal could already claim when its plan started.
-   *
-   * The planned path used to start at ₹0 on created_at — i.e. it assumed the
-   * owner opened the app owning nothing. Anyone who starts tracking an
-   * existing portfolio then divides their real corpus by two instalments'
-   * worth of plan and reads "1764% of schedule". Worse, the ratio swung tens
-   * of points month to month as the waterfall reallocated, with no money
-   * moving. See analyzeGoals for how this is estimated.
-   */
-  startCorpus = 0,
 ): GoalProjection {
-  const createdISO = goal.created_at.slice(0, 10);
-  const N = Math.max(0, monthsBetween(createdISO, goal.end_date));
-  const elapsed = clamp(monthsBetween(createdISO, nowISO), 0, N);
   const monthsRemaining = Math.max(0, monthsBetween(nowISO, goal.end_date));
   const target = targetCorpus(goal);
   const glide = buildGlide(allocations);
-  // N === 0 (due at creation, e.g. an emergency fund) is still a valid plan:
-  // there is no accumulation phase — the full target is needed right now.
   const hasPlan = glide.size > 0;
 
   const monthlyReturns = new Map(
     assetClasses.map((ac) => [ac.id, monthlyRate(Number(ac.expected_return))]),
   );
 
-  let baselineSIP = 0;
-  let plannedCorpusNow = 0;
   let fundedCorpus = target;
   const targetHoldingNow = new Map<string, number>();
   const targetAllocNow = new Map<string, number>();
 
-  if (hasPlan && N > 0) {
-    baselineSIP = solveSIP(startCorpus, target, N, N, glide, monthlyReturns);
-    const path = simulatePath(startCorpus, baselineSIP, N, N, glide, monthlyReturns);
-    plannedCorpusNow = path[elapsed] ?? 0;
-    // Corpus that, growing with NO further SIP, reaches target by the date.
-    const growth = monthsRemaining > 0
-      ? simulatePath(1, 0, monthsRemaining, monthsRemaining, glide, monthlyReturns).at(-1)!
-      : 1;
+  if (hasPlan) {
+    // Growth of one rupee left alone until the goal date, blended across the
+    // glide path. A goal due today needs its whole target in hand.
+    const growth =
+      monthsRemaining > 0
+        ? simulatePath(1, 0, monthsRemaining, monthsRemaining, glide, monthlyReturns).at(-1)!
+        : 1;
     fundedCorpus = growth > 0 ? target / growth : target;
     for (const [cls, frac] of targetAllocAt(glide, monthsRemaining)) {
       targetAllocNow.set(cls, frac);
-      targetHoldingNow.set(cls, plannedCorpusNow * frac);
-    }
-  } else if (hasPlan) {
-    // Due since creation: no SIP path to simulate — the on-track holding is
-    // simply the full target, split by the glide's allocation at 0 months out.
-    plannedCorpusNow = target;
-    fundedCorpus = target;
-    for (const [cls, frac] of targetAllocAt(glide, 0)) {
-      targetAllocNow.set(cls, frac);
-      targetHoldingNow.set(cls, target * frac);
+      targetHoldingNow.set(cls, fundedCorpus * frac);
     }
   }
 
   return {
     hasPlan,
-    totalMonths: N,
-    monthsElapsed: elapsed,
     monthsRemaining,
     targetCorpus: target,
-    plannedCorpusNow,
     fundedCorpus,
-    baselineSIP,
     targetHoldingNow,
     targetAllocNow,
   };
@@ -379,28 +317,43 @@ function addMonthsISO(iso: string, months: number): string {
 export type PlannedPoint = { date: string; planned: number; target: number };
 
 /**
- * Monthly planned-corpus curve from creation to the goal date, using the SIP
- * that was required at creation. `target` is the flat reference line.
+ * For each month from now to the goal date: the corpus that would have to be
+ * held at that moment to reach the target with no further investing, plus the
+ * flat target line.
+ *
+ * This replaces a simulated SIP path anchored at the goal's creation date. The
+ * curve rises to meet the target, and where your holding sits against it is
+ * exactly the question the card answers.
  */
 export function plannedSeries(
   goal: Goal,
   allocations: GoalAllocation[],
   assetClasses: AssetClass[],
-  startCorpus = 0,
+  fromISO: string,
 ): PlannedPoint[] {
-  const createdISO = goal.created_at.slice(0, 10);
-  const N = Math.max(0, monthsBetween(createdISO, goal.end_date));
+  const months = monthsBetween(fromISO, goal.end_date);
   const glide = buildGlide(allocations);
   const target = targetCorpus(goal);
-  if (glide.size === 0 || N === 0) return [];
+  if (glide.size === 0 || months <= 0) return [];
 
   const monthlyReturns = new Map(
     assetClasses.map((ac) => [ac.id, monthlyRate(Number(ac.expected_return))]),
   );
-  const baselineSIP = solveSIP(startCorpus, target, N, N, glide, monthlyReturns);
-  const path = simulatePath(startCorpus, baselineSIP, N, N, glide, monthlyReturns);
 
-  return path.map((planned, j) => ({ date: addMonthsISO(createdISO, j), planned, target }));
+  const out: PlannedPoint[] = [];
+  for (let j = 0; j <= months; j++) {
+    const remaining = months - j;
+    const growth =
+      remaining > 0
+        ? simulatePath(1, 0, remaining, remaining, glide, monthlyReturns).at(-1)!
+        : 1;
+    out.push({
+      date: addMonthsISO(fromISO, j),
+      planned: growth > 0 ? target / growth : target,
+      target,
+    });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -524,7 +477,8 @@ export type GoalAnalysis = {
   fill: GoalFill;
   attributed: number;
   fundedPct: number; // attributed / targetCorpus
-  schedulePct: number; // attributed / plannedCorpusNow (vs where the plan says you should be)
+  /** attributed / fundedCorpus — 1 means the goal is fully funded from the pool. */
+  coverage: number;
   requiredMonthly: number; // forward SIP from the attributed corpus
   requiredByClass: Map<string, number>; // requiredMonthly split toward the classes still short
   onTrack: boolean;
@@ -540,36 +494,6 @@ export type GoalsAnalysis = {
   surplusByClass: Map<string, number>; // invested pool not attributed to any goal
 };
 
-
-/**
- * Fraction of the whole pool that the zero-start waterfall hands this goal.
- * Used only to estimate what the goal could already have claimed when its plan
- * began; the real attribution is recomputed afterwards from the real plans.
- */
-function shareOfPool(
-  projections: Map<string, GoalProjection>,
-  poolByClass: Map<string, number>,
-  active: Goal[],
-  goalId: string,
-): number {
-  const poolTotal = [...poolByClass.values()].reduce((s, v) => s + v, 0);
-  if (poolTotal <= 0) return 0;
-  const { fills } = runWaterfall(
-    active.map((g) => {
-      const p = projections.get(g.id)!;
-      const capByClass = new Map<string, number>();
-      for (const [cls, frac] of p.targetAllocNow) capByClass.set(cls, p.fundedCorpus * frac);
-      return {
-        goalId: g.id,
-        monthsRemaining: p.monthsRemaining,
-        needByClass: p.targetHoldingNow,
-        capByClass,
-      };
-    }),
-    poolByClass,
-  );
-  return (fills.get(goalId)?.attributed ?? 0) / poolTotal;
-}
 
 export function analyzeGoals(
   goals: Goal[],
@@ -587,46 +511,21 @@ export function analyzeGoals(
    * instalments while the numerator is the whole holding — and it lurches
    * every month as the waterfall reallocates, with no money moving.
    */
-  poolValueAt?: (iso: string) => number,
 ): GoalsAnalysis {
   const active = goals.filter((g) => g.status === "active");
 
-  // Pass 1: project from zero purely to learn each goal's SHARE of the pool.
-  const zeroProjections = new Map(
-    active.map((g) => [g.id, projectGoal(g, allocByGoal.get(g.id) ?? [], assetClasses, nowISO)]),
-  );
-  const poolNow = [...poolByClass.values()].reduce((s, v) => s + v, 0);
-
-  const startCorpusOf = (g: Goal): number => {
-    if (!poolValueAt || poolNow <= 0) return 0;
-    const created = g.created_at.slice(0, 10);
-    const poolThen = poolValueAt(created);
-    if (poolThen <= 0) return 0;
-    const share = shareOfPool(zeroProjections, poolByClass, active, g.id);
-    // The goal's share of the pool is assumed to have been what it is now.
-    // That is an assumption, not a measurement — nothing records which rupee
-    // was earmarked for what — but it is far closer than assuming zero.
-    return share * poolThen;
-  };
-
   const projections = new Map(
-    active.map((g) => [
-      g.id,
-      projectGoal(g, allocByGoal.get(g.id) ?? [], assetClasses, nowISO, startCorpusOf(g)),
-    ]),
+    active.map((g) => [g.id, projectGoal(g, allocByGoal.get(g.id) ?? [], assetClasses, nowISO)]),
   );
 
   const { fills, surplusByClass } = runWaterfall(
     active.map((g) => {
       const p = projections.get(g.id)!;
-      // Funded cap per class: the fully-funded corpus split by current allocation.
-      const capByClass = new Map<string, number>();
-      for (const [cls, frac] of p.targetAllocNow) capByClass.set(cls, p.fundedCorpus * frac);
       return {
         goalId: g.id,
         monthsRemaining: p.monthsRemaining,
         needByClass: p.targetHoldingNow,
-        capByClass,
+        capByClass: p.targetHoldingNow,
       };
     }),
     poolByClass,
@@ -644,12 +543,8 @@ export function analyzeGoals(
       nowISO,
     );
     const fundedPct = projection.targetCorpus > 0 ? attributed / projection.targetCorpus : 0;
-    const schedulePct =
-      projection.plannedCorpusNow > 0
-        ? attributed / projection.plannedCorpusNow
-        : attributed > 0
-          ? 1
-          : 0;
+    const coverage =
+      projection.fundedCorpus > 0 ? attributed / projection.fundedCorpus : attributed > 0 ? 1 : 0;
 
     // Split the required SIP toward the classes still short of their funded cap,
     // so a class already filled (e.g. one with surplus) gets no new money.
@@ -673,7 +568,7 @@ export function analyzeGoals(
       fill,
       attributed,
       fundedPct,
-      schedulePct,
+      coverage,
       requiredMonthly,
       requiredByClass,
       onTrack: projection.hasPlan && fill.onTrack,
@@ -687,81 +582,40 @@ export function analyzeGoals(
 // Verdicts
 // ---------------------------------------------------------------------------
 
-/**
- * A plan younger than this has no schedule worth judging. Two months into a
- * 33-year plan the planned corpus is two SIP instalments, so any real portfolio
- * divides out at 40× and every goal reports "on track" — the same vacuous pass
- * as a zero-length plan, with the sign flipped. Below this age we report what
- * is held against the target and decline to grade the schedule.
- */
-export const MIN_PLAN_MONTHS = 6;
-
-/** Below this share of the planned corpus a goal reads as behind, not merely near. */
-export const SLIGHTLY_BEHIND_FLOOR = 0.9;
-
 export type GoalVerdict =
   /** No glide path — nothing to project against. */
   | { kind: "no-plan" }
   /** Past its date. `short` is target − attributed, 0 when met. */
   | { kind: "due"; short: number }
-  /** Held ≥ the target itself. */
-  | { kind: "funded" }
-  /** Held ≥ the corpus that grows into the target with no further investing. */
-  | { kind: "will-fund" }
-  /**
-   * Plan too young to grade — see MIN_PLAN_MONTHS. `wouldFundItself` is worth
-   * reporting even here, but as a projection resting on the return
-   * assumptions, never as a pass.
-   */
-  | { kind: "no-history"; monthsElapsed: number; wouldFundItself: boolean }
+  /** Holds everything it needs: left alone, it reaches the target on time. */
   | { kind: "on-track" }
-  | { kind: "slightly-behind" }
-  | { kind: "behind" };
+  /** Short of what it needs. `short` is the gap, in rupees. */
+  | { kind: "behind"; short: number };
 
 /**
  * The single definition of how a goal is doing.
  *
- * Deliberately NOT `fill.onTrack` (every per-class need filled), which the two
- * pages used to print: `need` is `plannedCorpusNow × allocation`, so a plan
- * with no elapsed months needs nothing, and nothing is trivially satisfied.
- * That is how Retirement showed "0.15% funded" and "on track" together.
+ * Goals claim from one pool, soonest due first. A goal that received
+ * everything it needs is on track; one that did not is behind, by the amount
+ * it did not get. That is all — there is no notion of "where a plan says you
+ * should be by now", which is what used to make the answer depend on the day
+ * the goal row happened to be created.
  */
 export function goalVerdict(a: GoalAnalysis): GoalVerdict {
-  const { projection: p, attributed, schedulePct } = a;
+  const { projection: p, attributed } = a;
   if (!p.hasPlan) return { kind: "no-plan" };
   if (p.monthsRemaining === 0) {
     return { kind: "due", short: Math.max(0, p.targetCorpus - attributed) };
   }
-  // "funded" is a fact about today and rests on no assumption, so it outranks
-  // everything. "will-fund" is a projection — it asserts that what is held
-  // compounds into the target — so it must NOT outrank the no-history guard.
-  // A 33-year goal two months old was reporting "will fund itself" off ₹19.7L
-  // against ₹34.7Cr, a claim resting entirely on one typed-in rate held for
-  // three decades. That is precisely a verdict the reader cannot argue with.
-  if (attributed >= p.targetCorpus) return { kind: "funded" };
-  if (p.monthsElapsed < MIN_PLAN_MONTHS || p.plannedCorpusNow <= 0) {
-    return {
-      kind: "no-history",
-      monthsElapsed: p.monthsElapsed,
-      wouldFundItself: attributed >= p.fundedCorpus,
-    };
-  }
-  if (attributed >= p.fundedCorpus) return { kind: "will-fund" };
-  // Band on the ROUNDED percentage — the same figure the page prints. Comparing
-  // the raw ratio put a red "behind" badge next to the text "(90% of schedule)".
-  const shown = Math.round(schedulePct * 100) / 100;
-  if (shown >= 1) return { kind: "on-track" };
-  if (shown >= SLIGHTLY_BEHIND_FLOOR) return { kind: "slightly-behind" };
-  return { kind: "behind" };
+  const short = p.fundedCorpus - attributed;
+  // A rupee of float: a goal filled to its need should not read as behind.
+  if (short <= 0.5) return { kind: "on-track" };
+  return { kind: "behind", short };
 }
 
 /** Verdicts that should not read as a pass. */
 export function verdictIsShort(v: GoalVerdict): boolean {
-  return (
-    v.kind === "behind" ||
-    v.kind === "slightly-behind" ||
-    (v.kind === "due" && v.short > 0.5)
-  );
+  return v.kind === "behind" || (v.kind === "due" && v.short > 0.5);
 }
 
 // ---------------------------------------------------------------------------

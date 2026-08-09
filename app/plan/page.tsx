@@ -19,8 +19,6 @@ import {
   lowerReturns,
   planSummary,
   poolByAssetClass,
-  poolValueAsOf,
-  MIN_PLAN_MONTHS,
   STRESS_POINTS,
   type GoalAnalysis,
   type GoalVerdict,
@@ -87,8 +85,7 @@ export default async function PlanPage() {
   }
 
   const pool = poolByAssetClass(invs, entriesByInv);
-  const poolAt = (iso: string) => poolValueAsOf(invs, entriesByInv, iso);
-  const { analyses, surplusByClass } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today, poolAt);
+  const { analyses, surplusByClass } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today);
   const summary = planSummary(analyses);
   const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
 
@@ -97,7 +94,7 @@ export default async function PlanPage() {
   // with one number typed into the box at the bottom of this page; printing it
   // only at that number leaves nothing to disagree with.
   const stressed = planSummary(
-    analyzeGoals(goals, allocByGoal, lowerReturns(assetClasses, STRESS_POINTS), pool, today, poolAt)
+    analyzeGoals(goals, allocByGoal, lowerReturns(assetClasses, STRESS_POINTS), pool, today)
       .analyses,
   );
 
@@ -184,8 +181,7 @@ export default async function PlanPage() {
       <header>
         <h1 className="text-2xl font-semibold">Plan</h1>
         <p className="text-sm text-ink-3">
-          Will you get what you&apos;re saving for? Goals claim from one shared
-          investment pool — they never touch cash or net worth.
+          One pool, shared by due date. Goals never touch cash or net worth.
         </p>
       </header>
 
@@ -205,14 +201,7 @@ export default async function PlanPage() {
               : analyses.length}{" "}
             active goal{analyses.length === 1 ? "" : "s"}, stepping up 10% a year.
             {selfFunding.length > 0 && (
-              <>
-                {" "}
-                {selfFunding.map((a) => a.goal.name).join(" and ")}{" "}
-                {selfFunding.length === 1 ? "asks" : "ask"} for nothing further — what{" "}
-                {selfFunding.length === 1 ? "it holds" : "they hold"} is already projected to reach{" "}
-                {selfFunding.length === 1 ? "its" : "their"} target at the assumed returns, so{" "}
-                {selfFunding.length === 1 ? "it adds" : "they add"} ₹0 to this figure.
-              </>
+              <> {selfFunding.map((a) => a.goal.name).join(", ")} need nothing further.</>
             )}
           </p>
 
@@ -262,29 +251,21 @@ export default async function PlanPage() {
                 {fmtINR(bases.avgExpense)} − EMI {fmtINR(bases.emiTotal)} = {fmtINR(available)}
               </p>
               <p className="mt-1 text-[0.6875rem] text-ink-3">
-                Spending is the mean of {bases.completedMonths} completed month
-                {bases.completedMonths === 1 ? "" : "s"} in {currentPhase?.name}
-                {bases.medianExpense > 0 &&
-                  Math.abs(bases.medianExpense - bases.avgExpense) > 1 && (
-                    <> — the middle month was {fmtINR(bases.medianExpense)}</>
-                  )}
-                . EMI is inferred from each open loan&apos;s last payment. Salary excludes bonus and
-                freelance, which a standing SIP cannot rely on.
+                Mean of {bases.completedMonths} completed month
+                {bases.completedMonths === 1 ? "" : "s"}; salary only, EMI inferred.
               </p>
               {bases.outlierMonth && atMedian !== null && (
                 <p className="mt-1 rounded-lg border border-warn/30 bg-warn-soft/50 p-2 text-[0.75rem] text-ink-2">
                   <span className="font-medium text-ink">
                     {atMedian - required >= 0 === headroom! >= 0
-                      ? "At your median month the answer is the same."
-                      : `At your median month this verdict flips to ${atMedian - required >= 0 ? "Yes" : "No"}.`}
+                      ? "Same answer at your median month."
+                      : `Flips to ${atMedian - required >= 0 ? "Yes" : "No"} at your median month.`}
                   </span>{" "}
-                  Using {fmtINR(bases.medianExpense)} instead of the {fmtINR(bases.avgExpense)} mean
-                  leaves {fmtINR(atMedian)} —{" "}
+                  {fmtINR(bases.medianExpense)} spending leaves {fmtINR(atMedian)} —{" "}
                   {atMedian - required >= 0
-                    ? `${fmtINR(atMedian - required)} to spare`
+                    ? `${fmtINR(atMedian - required)} spare`
                     : `${fmtINR(required - atMedian)} short`}
-                  . The mean is the safer figure to plan against; the gap between them is one
-                  unusual month.
+                  .
                 </p>
               )}
               {bases.outlierMonth && (
@@ -358,9 +339,7 @@ export default async function PlanPage() {
         <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink-3">How the pool is shared</h2>
           <p className="mt-0.5 text-xs text-ink-3">
-            {fmtCompact(totalPool)} invested is claimed by whichever goal is due soonest, asset class
-            by asset class. A goal decades away is only entitled to what its own plan expects it to
-            hold by now — which is why it can look almost empty while being on schedule.
+            {fmtCompact(totalPool)} invested, claimed soonest-due first.
           </p>
           <ul className="mt-3 space-y-2">
             {byDueDate.map((a) => (
@@ -402,9 +381,8 @@ export default async function PlanPage() {
           </p>
           {tiedDueDates.size > 0 && (
             <p className="mt-1 text-[0.6875rem] text-warn">
-              {tiedDueDates.size === 1 ? "Two goals share a target date" : `${tiedDueDates.size} pairs of goals share a target date`}
-              . Which of them is filled first is decided by their internal id, not by anything you
-              set — move one of the dates if the order matters.
+              {tiedDueDates.size === 1 ? "Two goals share a date" : `${tiedDueDates.size} pairs share a date`}
+              ; which fills first is arbitrary. Move one if the order matters.
             </p>
           )}
         </section>
@@ -414,9 +392,7 @@ export default async function PlanPage() {
       {monthlyByClass.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink-3">Where the monthly money goes</h2>
-          <p className="mt-0.5 text-xs text-ink-3">
-            {fmtINR(required)} split across the classes still short of their target.
-          </p>
+          <p className="mt-0.5 text-xs text-ink-3">{fmtINR(required)}, split by class.</p>
           <ul className="mt-3 divide-y divide-rule-soft">
             {monthlyByClass.map((r) => (
               <li key={r.name} className="flex items-baseline justify-between gap-3 py-2 text-sm">
@@ -461,9 +437,7 @@ export default async function PlanPage() {
       {/* ── The numbers every verdict above rests on ─────────────────────── */}
       <section className="rounded-xl border border-rule bg-surface p-4">
         <h2 className="text-sm font-medium text-ink-3">Assumptions this plan rests on</h2>
-        <p className="mt-0.5 text-xs text-ink-3">
-          Every projection above is a function of these. Change one and the verdict changes with it.
-        </p>
+        <p className="mt-0.5 text-xs text-ink-3">Every verdict above moves with these.</p>
         <div className="mt-3">
           <AssetClassesEditor assetClasses={assetClasses} />
         </div>
@@ -499,12 +473,7 @@ export default async function PlanPage() {
 const BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
   "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
   due: { label: "due now", cls: "bg-warn-soft text-warn" },
-  funded: { label: "funded", cls: "bg-up-soft text-up" },
-  // Neutral, not green: it is a projection over decades, not an achievement.
-  "will-fund": { label: "on assumptions, funded", cls: "bg-surface-2 text-ink-2" },
-  "no-history": { label: "no history yet", cls: "bg-surface-2 text-ink-2" },
   "on-track": { label: "on track", cls: "bg-up-soft text-up" },
-  "slightly-behind": { label: "slightly behind", cls: "bg-warn-soft text-warn" },
   behind: { label: "behind", cls: "bg-down-soft text-down" },
 };
 
@@ -521,18 +490,8 @@ function GoalCard({
   const v = goalVerdict(a);
   const badge = BADGE[v.kind];
 
-  const fundedPct = p.targetCorpus > 0 ? (attributed / p.targetCorpus) * 100 : 0;
-  // The bar measures progress against SCHEDULE, not against the final target.
-  // Against the target, a 2052 goal renders a 0.7% sliver directly above a
-  // sentence reading "90% of schedule" — the two disagree violently, and the
-  // bar would stay visually empty for the next twenty years. Funded-vs-target
-  // is still reported, as a figure, on the line below.
-  const gradeable = v.kind !== "no-plan" && v.kind !== "no-history";
-  const schedulePct = p.plannedCorpusNow > 0 ? (attributed / p.plannedCorpusNow) * 100 : 0;
-  const barPct = gradeable ? Math.min(100, schedulePct) : Math.min(100, fundedPct);
-  const overshoot = gradeable && schedulePct > 100;
-  const barTone =
-    v.kind === "behind" ? "bg-down" : v.kind === "slightly-behind" ? "bg-warn" : "bg-up";
+  const coveragePct = Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, a.coverage * 100));
+  const barTone = v.kind === "behind" ? "bg-down" : v.kind === "due" ? "bg-warn" : "bg-up";
 
   return (
     <div className="rounded-xl border border-rule bg-surface p-4">
@@ -554,22 +513,12 @@ function GoalCard({
 
       <div className="mt-3">
         <div className="flex items-baseline justify-between text-[0.6875rem] text-ink-3">
-          <span>{gradeable ? "against what the plan expects by now" : "against the final target"}</span>
-          <span className="tabular-nums">
-            {gradeable ? `${Math.round(schedulePct)}%` : `${fundedPct.toFixed(1)}%`}
-          </span>
+          <span>of what it needs now</span>
+          <span className="tabular-nums">{Math.round(a.coverage * 100)}%</span>
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
-          <div
-            className={`h-full rounded-full ${barTone}`}
-            style={{ width: `${Math.max(attributed > 0 ? 1.5 : 0, barPct)}%` }}
-          />
+          <div className={`h-full rounded-full ${barTone}`} style={{ width: `${coveragePct}%` }} />
         </div>
-        {overshoot && (
-          <p className="mt-0.5 text-[0.6875rem] text-ink-3">
-            Bar caps at 100% — actually {Math.round(schedulePct)}% of the expected corpus.
-          </p>
-        )}
       </div>
 
       <p className="mt-2 text-[0.8125rem] text-ink-2">
@@ -577,26 +526,22 @@ function GoalCard({
       </p>
 
       <p className="mt-1.5 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-        holds {fmtINR(attributed)} · {fundedPct.toFixed(1)}% of the{" "}
-        {fmtCompact(p.targetCorpus)} final target
-        {monthly > 0 ? (
-          <> · invest {fmtINR(monthly)}/mo</>
-        ) : (
-          v.kind !== "no-plan" && <> · asks for ₹0/mo at the assumed returns</>
-        )}
+        {fmtINR(attributed)} of {fmtCompact(p.fundedCorpus)} needed · {fmtCompact(p.targetCorpus)} by{" "}
+        {fmtMonthYear(a.goal.end_date)}
+        {monthly > 0 && <> · invest {fmtINR(monthly)}/mo</>}
       </p>
     </div>
   );
 }
 
-/** One sentence per verdict, each naming the number it is derived from. */
+/** One line per verdict. */
 function VerdictLine({ a, v }: { a: GoalAnalysis; v: GoalVerdict }) {
-  const { projection: p, attributed, schedulePct } = a;
+  const { projection: p } = a;
   switch (v.kind) {
     case "no-plan":
       return (
         <>
-          No glide path set, so there is nothing to project against.{" "}
+          No glide path set.{" "}
           <Link href={`/goals/${a.goal.id}`} className="underline">
             Set one
           </Link>
@@ -605,62 +550,13 @@ function VerdictLine({ a, v }: { a: GoalAnalysis; v: GoalVerdict }) {
       );
     case "due":
       return v.short > 0.5 ? (
-        <>
-          Due now and short {fmtINR(v.short)} — holds {fmtINR(attributed)} of the{" "}
-          {fmtINR(p.targetCorpus)} needed.
-        </>
+        <>Due now, short {fmtINR(v.short)}.</>
       ) : (
-        <>Due now and met — holds {fmtINR(attributed)} against {fmtINR(p.targetCorpus)}.</>
-      );
-    case "funded":
-      return (
-        <>
-          Funded — {fmtINR(attributed)} held against the {fmtCompact(p.targetCorpus)} this goal
-          needs.
-        </>
-      );
-    case "will-fund":
-      return (
-        <>
-          Needs nothing further <em>if the assumptions hold</em> — {fmtINR(attributed)} compounds
-          into {fmtCompact(p.targetCorpus)} by {fmtMonthYear(a.goal.end_date)}, a{" "}
-          {(p.targetCorpus / Math.max(1, attributed)).toFixed(1)}× multiple over{" "}
-          {formatMonthsLeft(p.monthsRemaining)}. That claim is only as good as the rates at the
-          bottom of this page.
-        </>
-      );
-    case "no-history":
-      return (
-        <>
-          This plan is {v.monthsElapsed} month{v.monthsElapsed === 1 ? "" : "s"} old — too little to
-          judge against its schedule, so no grade is given until it is {MIN_PLAN_MONTHS} months.
-          Right now it holds {fmtINR(attributed)} of {fmtCompact(p.targetCorpus)}.
-          {v.wouldFundItself && (
-            <>
-              {" "}
-              At the assumed returns what is already there would reach the target on its own — a{" "}
-              {(p.targetCorpus / Math.max(1, attributed)).toFixed(1)}× multiple over{" "}
-              {formatMonthsLeft(p.monthsRemaining)}, which is a projection, not a result.
-            </>
-          )}
-        </>
+        <>Due now and met.</>
       );
     case "on-track":
-      return (
-        <>
-          On track — holds {fmtINR(attributed)}, and the plan expects{" "}
-          {fmtINR(p.plannedCorpusNow)} by now ({Math.round(schedulePct * 100)}% of schedule).
-        </>
-      );
-    case "slightly-behind":
+      return <>Fully funded — left alone, it reaches {fmtCompact(p.targetCorpus)} on time.</>;
     case "behind":
-      return (
-        <>
-          {v.kind === "behind" ? "Behind" : "Slightly behind"} — holds {fmtINR(attributed)} against
-          the {fmtINR(p.plannedCorpusNow)} the plan expects by now (
-          {Math.round(schedulePct * 100)}% of schedule), a gap of{" "}
-          {fmtINR(p.plannedCorpusNow - attributed)}.
-        </>
-      );
+      return <>Short {fmtINR(v.short)} of what it needs to get there on its own.</>;
   }
 }

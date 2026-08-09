@@ -15,7 +15,7 @@ import type {
   Phase,
   Entry,
 } from "@/lib/types";
-import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass, poolValueAsOf } from "@/lib/goals";
+import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass } from "@/lib/goals";
 import { cashflowBases } from "@/lib/money";
 import { appToday } from "@/lib/demo";
 import { currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
@@ -204,8 +204,7 @@ export default async function DashboardPage() {
     else allocByGoal.set(a.goal_id, [a]);
   }
   const pool = poolByAssetClass(invs, entriesByInv);
-  const poolAt = (iso: string) => poolValueAsOf(invs, entriesByInv, iso);
-  const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today, poolAt);
+  const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today);
   const goalsRequired = planSummary(analyses).requiredMonthly;
   // The plan is funded by a standing SIP out of salary, not out of a trailing
   // average that is dragged down by an older pay level.
@@ -227,6 +226,8 @@ export default async function DashboardPage() {
   const avgInvestable = bases.avgInvestable;
 
   const assets = invest_market + cashInHand;
+  // Assets and debt share one scale so the segments are comparable.
+  const barTotal = Math.max(1, assets + owed_total);
   const balanced = Math.abs(cash_discrepancy) < 0.01;
 
   const nwSeries = buildNetworthSeries({
@@ -245,13 +246,10 @@ export default async function DashboardPage() {
   // what you have actually recorded. "Off by ₹1,46,945" named a discrepancy
   // without ever showing where it came from, which is the one thing this app
   // exists to be able to do.
-  //   derived_cash = money_sources + phase_savings − open_invest_book
-  //                  + (debt_pending − interest_commit)
-  // which is expected_NW − invest_market + debt_pending once unrealized gain
-  // cancels. Written the long way so the sentence under the table is checkable.
-  const loan_principal_outstanding = debt_pending - interest_commit;
-  const derived_cash =
-    money_sources + phase_savings - open_invest_book + loan_principal_outstanding;
+  // The parity check still runs — it is the regression test that has caught
+  // real errors — but it now reports only its verdict. The full derivation was
+  // on screen every day and earned its space only on the rare one where it is
+  // not zero, so that detail lives in the sentence shown when it breaks.
 
   return (
     <div className="space-y-6">
@@ -266,21 +264,29 @@ export default async function DashboardPage() {
 
         {assets > 0 && (
           <>
+            {/* Three segments across one scale: two things you own and the one
+                you owe. The bar showed only the assets, so it could not be
+                read as the headline it sits under. */}
             <div className="mt-4 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
-              <span style={{ width: `${(invest_market / assets) * 100}%`, background: "var(--cat-1)" }} />
-              <span style={{ width: `${Math.max(0, (cashInHand / assets) * 100)}%`, background: "var(--cat-6)" }} />
+              <span style={{ width: `${(invest_market / barTotal) * 100}%`, background: "var(--cat-1)" }} />
+              <span style={{ width: `${Math.max(0, (cashInHand / barTotal) * 100)}%`, background: "var(--cat-6)" }} />
+              {owed_total > 0 && (
+                <span style={{ width: `${(owed_total / barTotal) * 100}%`, background: "var(--debt)" }} />
+              )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]">
               <Key color="var(--cat-1)" value={fmt(invest_market)} name="invested" />
-              <Key color="var(--cat-6)" value={fmt(cashInHand)} name="cash in hand" />
+              <Key color="var(--cat-6)" value={fmt(cashInHand)} name="cash" />
+              {owed_total > 0 && <Key color="var(--debt)" value={`−${fmt(owed_total)}`} name="owed" />}
             </div>
           </>
         )}
 
         <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmt(assets)} assets − {fmt(owed_total)} owed = {fmt(NW)}
-          {debt_ratio !== null && debt_pending > 0 && (
-            <span className="ml-2">· debt is {(debt_ratio * 100).toFixed(1)}% of assets</span>
+          {fmt(invest_market)} invested + {fmt(cashInHand)} cash − {fmt(owed_total)} owed ={" "}
+          {fmt(NW)}
+          {debt_ratio !== null && owed_total > 0 && (
+            <span className="ml-2">· owed is {(debt_ratio * 100).toFixed(1)}% of what you hold</span>
           )}
         </p>
 
@@ -321,33 +327,6 @@ export default async function DashboardPage() {
               )}
             </span>
           </p>
-          {/* Always shown, balanced or not: the claim is only worth anything if
-              the reader can see the two figures it compares. */}
-          <table className="mt-2 w-full font-mono text-[0.6875rem] tabular-nums text-ink-3">
-            <tbody>
-              <tr>
-                <td className="py-px pr-2">cash the ledger implies</td>
-                <td className="py-px text-right">{fmt(derived_cash)}</td>
-              </tr>
-              <tr>
-                <td className="py-px pr-2">− cash you have recorded</td>
-                <td className="py-px text-right">{fmt(cashSum)}</td>
-              </tr>
-              <tr className={balanced ? "text-up" : "text-warn"}>
-                <td className="border-t border-rule-soft py-px pr-2">= unexplained</td>
-                <td className="border-t border-rule-soft py-px text-right font-semibold">
-                  {fmt(cash_discrepancy)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-ink-3">
-            Implied cash = {fmt(money_sources)} money sources {phase_savings < 0 ? "−" : "+"}{" "}
-            {fmt(Math.abs(phase_savings))} saved this phase − {fmt(open_invest_book)} put into
-            investments + {fmt(loan_principal_outstanding)}{" "}
-            borrowed and not yet repaid. Market
-            value cancels out of this line: an investment&apos;s gain is not cash until it is sold.
-          </p>
         </div>
       </section>
 
@@ -359,8 +338,7 @@ export default async function DashboardPage() {
         </h2>
         {showAverages && (
           <p className="text-xs text-ink-3">
-            Averaged over {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"}.
-            Percentages are shares of what you earn.
+            {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"}; % of what you earn.
           </p>
         )}
         {showAverages && avgInvestable !== null ? (
@@ -396,11 +374,7 @@ export default async function DashboardPage() {
       {headroom !== null && monthlyInvestable !== null && (
         <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink-3">Can you fund the plan?</h2>
-          <p className="text-xs text-ink-3">
-            Measured against salary, not the average above — a SIP is committed
-            out of the pay that arrives every month, and the average is pulled
-            down by earlier, lower-paid ones.
-          </p>
+          <p className="text-xs text-ink-3">Against salary, not the average above.</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Cell label="Goals need" value={fmt(goalsRequired)} />
             <Cell label="Salary investable" value={fmt(monthlyInvestable)} sub="in-hand − expenses − EMI" />

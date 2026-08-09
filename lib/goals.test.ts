@@ -10,12 +10,9 @@ import {
   goalVerdict,
   largestRemainder,
   lowerReturns,
-  marketValueAsOf,
   marketValueOf,
   planSummary,
   poolByAssetClass,
-  poolValueAsOf,
-  projectGoal,
   runWaterfall,
   targetCorpus,
 } from "./goals.ts";
@@ -61,35 +58,7 @@ test("same-date entries are broken by created_at, not by array order", () => {
   assert.equal(marketValueOf(inv, [valuation, contribution]), 512_000);
 });
 
-test("market value as of a past date ignores anything later", () => {
-  const inv = investment({ id: "inv" });
-  const entries = [
-    entry({ id: "a", investment_id: "inv", date: "2025-01-01", total_value_after: 100_000 }),
-    entry({ id: "b", investment_id: "inv", date: "2026-01-01", total_value_after: 300_000 }),
-  ];
-  assert.equal(marketValueAsOf(inv, entries, "2024-06-01"), 0, "before it existed");
-  assert.equal(marketValueAsOf(inv, entries, "2025-06-01"), 100_000);
-  assert.equal(marketValueAsOf(inv, entries, "2026-06-01"), 300_000);
-});
 
-test("a position closed before the date contributes nothing", () => {
-  const inv = investment({ id: "inv", status: "closed", closed_on: "2025-12-01" });
-  const entries = [
-    entry({ id: "a", investment_id: "inv", date: "2025-01-01", total_value_after: 100_000 }),
-  ];
-  assert.equal(marketValueAsOf(inv, entries, "2026-01-01"), 0);
-  assert.equal(marketValueAsOf(inv, entries, "2025-06-01"), 100_000);
-});
-
-test("poolValueAsOf sums every holding at that date", () => {
-  const invs = [investment({ id: "a" }), investment({ id: "b" })];
-  const entries = byInvestment([
-    entry({ id: "1", investment_id: "a", date: "2025-01-01", total_value_after: 100_000 }),
-    entry({ id: "2", investment_id: "b", date: "2025-07-01", total_value_after: 250_000 }),
-  ]);
-  assert.equal(poolValueAsOf(invs, entries, "2025-03-01"), 100_000);
-  assert.equal(poolValueAsOf(invs, entries, "2025-12-01"), 350_000);
-});
 
 // ---------------------------------------------------------------------------
 // Rounding
@@ -123,10 +92,9 @@ function analyseOne(
   g: ReturnType<typeof goal>,
   pool: Map<string, number>,
   now: string,
-  poolAt?: (iso: string) => number,
   allocs = [alloc(g.id, "equity", 120, 100), alloc(g.id, "fixed", 0, 100)],
 ) {
-  const { analyses } = analyzeGoals([g], byGoal(allocs), classes, pool, now, poolAt);
+  const { analyses } = analyzeGoals([g], byGoal(allocs), classes, pool, now);
   return analyses[0];
 }
 
@@ -136,99 +104,64 @@ test("a goal with no glide path reports no plan, never a grade", () => {
   assert.equal(goalVerdict(analyses[0]).kind, "no-plan");
 });
 
-test("a plan younger than six months is not graded", () => {
-  const g = goal({ id: "g", created_at: "2026-06-01T00:00:00Z", end_date: "2032-01-01" });
-  const v = goalVerdict(analyseOne(g, new Map([["equity", 200_000]]), "2026-08-09"));
-  assert.equal(v.kind, "no-history");
-  assert.equal(v.kind === "no-history" && v.monthsElapsed, 2);
-});
-
-test("holding the full target reports funded even on a young plan", () => {
-  // "funded" is a fact about today and rests on no assumption, so it outranks
-  // the age gate. It is only reachable when the glide assumes no growth —
-  // otherwise runWaterfall caps attribution at fundedCorpus, which is by
-  // definition below the target.
+test("a goal that got everything it needs is on track", () => {
   const flat = [assetClass("vault", 0)];
-  const g = goal({
-    id: "g",
-    created_at: "2026-06-01T00:00:00Z",
-    end_date: "2027-01-01",
-    present_cost: 100_000,
-    inflation_rate: 0,
-  });
+  const g = goal({ id: "g", end_date: "2029-01-01", present_cost: 100_000, inflation_rate: 0 });
   const allocs = [alloc("g", "vault", 0, 100), alloc("g", "vault", 120, 100)];
   const { analyses } = analyzeGoals(
-    [g],
-    byGoal(allocs),
-    flat,
-    new Map([["vault", 5_000_000]]),
-    "2026-08-09",
+    [g], byGoal(allocs), flat, new Map([["vault", 5_000_000]]), "2026-08-09",
   );
-  assert.equal(goalVerdict(analyses[0]).kind, "funded");
+  assert.equal(goalVerdict(analyses[0]).kind, "on-track");
+  assert.ok(analyses[0].coverage >= 1);
 });
 
-test("a young plan that would grow into its target is still not a pass", () => {
-  // The verdict this ordering exists to prevent: a 33-year goal two months old
-  // reporting "will fund itself" off ₹19.7L against ₹34.7Cr, a claim resting
-  // entirely on one typed-in rate held for three decades.
-  const g = goal({
-    id: "retirement",
-    created_at: "2026-06-01T00:00:00Z",
-    end_date: "2059-09-13",
-    present_cost: 50_000_000,
-    inflation_rate: 6,
-  });
-  const v = goalVerdict(
-    analyseOne(g, new Map([["equity", 20_000_000]]), "2026-08-09", undefined, [
-      alloc("retirement", "equity", 0, 100),
-      alloc("retirement", "equity", 360, 100),
-    ]),
+test("a goal short of what it needs is behind, by the gap", () => {
+  const flat = [assetClass("vault", 0)];
+  const g = goal({ id: "g", end_date: "2029-01-01", present_cost: 100_000, inflation_rate: 0 });
+  const allocs = [alloc("g", "vault", 0, 100), alloc("g", "vault", 120, 100)];
+  const { analyses } = analyzeGoals(
+    [g], byGoal(allocs), flat, new Map([["vault", 30_000]]), "2026-08-09",
   );
-  assert.equal(v.kind, "no-history", "must not read as funded on two months of history");
-  assert.equal(
-    v.kind === "no-history" && v.wouldFundItself,
-    true,
-    "but the projection is still worth reporting, as a projection",
-  );
+  const v = goalVerdict(analyses[0]);
+  assert.equal(v.kind, "behind");
+  assert.equal(v.kind === "behind" && Math.round(v.short), 70_000);
 });
 
-test("the badge band uses the same rounding the page prints", () => {
-  // 89.76% displayed as "90%" while the badge said "behind" — the threshold
-  // compared the raw ratio, the page printed a rounded one.
-  const a = {
-    projection: {
-      hasPlan: true,
-      monthsRemaining: 60,
-      monthsElapsed: 24,
-      plannedCorpusNow: 1_000_000,
-      targetCorpus: 5_000_000,
-      fundedCorpus: 4_000_000,
-    },
-    attributed: 897_600,
-    schedulePct: 0.8976,
-  } as never;
-  assert.equal(goalVerdict(a).kind, "slightly-behind");
+test("the verdict does not depend on when the goal row was created", () => {
+  // The whole point of the rewrite: two identical goals, created years apart,
+  // must read the same. The old model simulated a SIP from created_at, so a
+  // freshly created goal needed almost nothing and passed trivially.
+  const flat = [assetClass("vault", 0)];
+  const allocs = (id: string) => [alloc(id, "vault", 0, 100), alloc(id, "vault", 120, 100)];
+  const mk = (id: string, created: string) =>
+    goal({ id, created_at: created, end_date: "2029-01-01", present_cost: 100_000, inflation_rate: 0 });
+
+  const old = analyzeGoals(
+    [mk("a", "2020-01-01T00:00:00Z")], byGoal(allocs("a")), flat,
+    new Map([["vault", 40_000]]), "2026-08-09",
+  ).analyses[0];
+  const fresh = analyzeGoals(
+    [mk("b", "2026-08-01T00:00:00Z")], byGoal(allocs("b")), flat,
+    new Map([["vault", 40_000]]), "2026-08-09",
+  ).analyses[0];
+
+  assert.equal(goalVerdict(old).kind, goalVerdict(fresh).kind);
+  assert.equal(Math.round(old.coverage * 100), Math.round(fresh.coverage * 100));
 });
 
-test("verdict bands step down through on-track, slightly behind, behind", () => {
-  const mk = (schedulePct: number) =>
-    goalVerdict({
-      projection: {
-        hasPlan: true,
-        monthsRemaining: 60,
-        monthsElapsed: 24,
-        plannedCorpusNow: 1_000_000,
-        targetCorpus: 5_000_000,
-        fundedCorpus: 4_000_000,
-      },
-      attributed: 1_000_000 * schedulePct,
-      schedulePct,
-    } as never).kind;
-
-  assert.equal(mk(1.2), "on-track");
-  assert.equal(mk(1.0), "on-track");
-  assert.equal(mk(0.95), "slightly-behind");
-  assert.equal(mk(0.7), "behind");
+test("the soonest-due goal is funded before a later one gets anything", () => {
+  const flat = [assetClass("vault", 0)];
+  const soon = goal({ id: "soon", end_date: "2027-01-01", present_cost: 100_000, inflation_rate: 0 });
+  const late = goal({ id: "late", end_date: "2035-01-01", present_cost: 100_000, inflation_rate: 0 });
+  const allocs = ["soon", "late"].flatMap((id) => [alloc(id, "vault", 0, 100), alloc(id, "vault", 120, 100)]);
+  const { analyses } = analyzeGoals(
+    [soon, late], byGoal(allocs), flat, new Map([["vault", 100_000]]), "2026-08-09",
+  );
+  const bySoon = analyses.find((a) => a.goal.id === "soon")!;
+  const byLate = analyses.find((a) => a.goal.id === "late")!;
+  assert.equal(goalVerdict(bySoon).kind, "on-track", "the nearer goal is filled first");
+  assert.equal(goalVerdict(byLate).kind, "behind");
+  assert.equal(byLate.attributed, 0);
 });
 
 test("a goal past its date reports due, with the shortfall", () => {
@@ -240,7 +173,7 @@ test("a goal past its date reports due, with the shortfall", () => {
     inflation_rate: 0,
   });
   const v = goalVerdict(
-    analyseOne(g, new Map([["fixed", 50_000]]), "2026-08-09", undefined, [
+    analyseOne(g, new Map([["fixed", 50_000]]), "2026-08-09", [
       alloc("g", "fixed", 0, 100),
       alloc("g", "fixed", 120, 100),
     ]),
@@ -253,53 +186,6 @@ test("a goal past its date reports due, with the shortfall", () => {
 // The starting-corpus anchor
 // ---------------------------------------------------------------------------
 
-test("the planned path starts from what the goal could already claim", () => {
-  // The bug: the plan assumed the owner held nothing on the day the goal row
-  // was inserted. Anyone tracking an existing portfolio then divided a real
-  // corpus by two instalments' worth of plan and read thousands of percent.
-  const g = goal({
-    id: "retirement",
-    created_at: "2026-06-20T00:00:00Z",
-    end_date: "2059-09-13",
-    present_cost: 50_000_000,
-    inflation_rate: 6,
-  });
-  const pool = new Map([["equity", 2_000_000]]);
-  const poolAt = () => 1_900_000; // the portfolio predates the goal
-
-  const withoutAnchor = analyseOne(g, pool, "2026-08-09");
-  const withAnchor = analyseOne(g, pool, "2026-08-09", poolAt);
-
-  assert.ok(
-    withoutAnchor.schedulePct > 20,
-    `unanchored ratio should be absurd, got ${withoutAnchor.schedulePct}`,
-  );
-  assert.ok(
-    withAnchor.schedulePct > 0.5 && withAnchor.schedulePct < 2,
-    `anchored ratio should be near 1, got ${withAnchor.schedulePct}`,
-  );
-});
-
-test("the anchored schedule does not lurch as the calendar moves", () => {
-  // Same rows, six months later, nothing bought or sold: the grade must not
-  // swing by hundreds of points.
-  const g = goal({
-    id: "retirement",
-    created_at: "2026-06-20T00:00:00Z",
-    end_date: "2059-09-13",
-    present_cost: 50_000_000,
-    inflation_rate: 6,
-  });
-  const pool = new Map([["equity", 2_000_000]]);
-  const poolAt = () => 1_900_000;
-
-  const now = analyseOne(g, pool, "2026-08-09", poolAt).schedulePct;
-  const later = analyseOne(g, pool, "2027-02-09", poolAt).schedulePct;
-  assert.ok(
-    Math.abs(now - later) < 0.5,
-    `schedule moved from ${now} to ${later} with no data change`,
-  );
-});
 
 // ---------------------------------------------------------------------------
 // Waterfall and summary
@@ -380,19 +266,6 @@ test("the target inflates from the plan's start, not from today", () => {
     inflation_rate: 6,
   });
   assert.equal(Math.round(targetCorpus(g)), Math.round(1_000_000 * 1.06 ** 10));
-});
-
-test("a goal due at creation needs its full target immediately", () => {
-  const g = goal({
-    id: "g",
-    created_at: "2026-08-09T00:00:00Z",
-    end_date: "2026-08-09",
-    present_cost: 200_000,
-    inflation_rate: 0,
-  });
-  const p = projectGoal(g, [alloc("g", "fixed", 0, 100)], classes, "2026-08-09");
-  assert.equal(p.totalMonths, 0);
-  assert.equal(Math.round(p.plannedCorpusNow), 200_000);
 });
 
 test("poolByAssetClass skips unclassified and closed holdings", () => {

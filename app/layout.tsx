@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Phase } from "@/lib/types";
 import Nav from "./Nav";
 import BottomNav from "./BottomNav";
+import HeaderMenu from "./HeaderMenu";
 import Logo from "./Logo";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -70,16 +71,12 @@ export default async function RootLayout({
                     Finance tracker
                   </span>
                   {currentPhase && (
-                    <span className="hidden truncate rounded-full bg-surface-2 px-2 py-0.5 text-[0.75rem] text-ink-2 sm:inline-block">
+                    <span className="truncate rounded-full bg-surface-2 px-2 py-0.5 text-[0.75rem] text-ink-2">
                       {currentPhase.name}
                     </span>
                   )}
                 </div>
-                <form action="/auth/signout" method="post">
-                  <button type="submit" className="whitespace-nowrap text-[0.8125rem] text-ink-3 hover:text-ink">
-                    Sign out
-                  </button>
-                </form>
+                <HeaderMenu />
               </div>
               {/* Tabs move to the bottom bar on phones; the thumb lives there. */}
               <div className="hidden md:block">

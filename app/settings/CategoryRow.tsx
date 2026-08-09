@@ -5,7 +5,18 @@ import { renameCategory, deleteCategory } from "./actions";
 import type { Category } from "@/lib/types";
 import { useGuard } from "../useGuard";
 
-export default function CategoryRow({ category }: { category: Category }) {
+export default function CategoryRow({
+  category,
+  usage,
+  inUse,
+}: {
+  category: Category;
+  /** e.g. "18 entries · ₹1,84,200", or "unused". */
+  usage: string;
+  /** Categories with entries cannot be deleted — the FK refuses. Say so up
+      front rather than offering a button that always fails. */
+  inUse: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -38,7 +49,7 @@ export default function CategoryRow({ category }: { category: Category }) {
   }
 
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-2">
+    <div className="flex items-center justify-between gap-3 py-2">
       {editing ? (
         <form onSubmit={onRename} className="flex flex-1 items-center gap-2">
           <input type="hidden" name="id" value={category.id} />
@@ -58,18 +69,27 @@ export default function CategoryRow({ category }: { category: Category }) {
         </form>
       ) : (
         <>
-          <span className="text-sm">{category.name}</span>
-          <div className="flex items-center gap-3 text-xs">
+          <span className="min-w-0">
+            <span className="block truncate text-sm">{category.name}</span>
+            <span className="block text-[0.6875rem] tabular-nums text-ink-3">{usage}</span>
+          </span>
+          <div className="flex shrink-0 items-center gap-3 text-xs">
             <button onClick={() => setEditing(true)} className="text-ink-3 hover:text-ink">
               rename
             </button>
-            <button onClick={onDelete} disabled={pending} className="text-down disabled:opacity-60 hover:text-down">
-              delete
-            </button>
+            {!inUse && (
+              <button
+                onClick={onDelete}
+                disabled={pending}
+                className="text-down disabled:opacity-60"
+              >
+                delete
+              </button>
+            )}
           </div>
         </>
       )}
       {error && <p className="ml-3 text-xs text-down">{error}</p>}
-    </li>
+    </div>
   );
 }

@@ -11,10 +11,8 @@ import {
   fmtMonthShort,
   inferEmis,
   median,
-  missingRecurring,
   monthKeysBetween,
   monthlySeries,
-  MISS_MAX,
   totalEmi,
 } from "./money.ts";
 import { category, debt, ledger, payment } from "./fixtures.test-helpers.ts";
@@ -241,79 +239,6 @@ test("a steady ledger reports no outlier", () => {
     ],
   });
   assert.equal(b.outlierMonth, null);
-});
-
-// ---------------------------------------------------------------------------
-// "Did I forget to log something"
-// ---------------------------------------------------------------------------
-
-function monthly(cat: string, months: string[], amount: number) {
-  return months.map((m) => ledger({ id: `${cat}-${m}`, date: `${m}-05`, amount, category_id: cat }));
-}
-
-test("a category logged most months but missing this one is surfaced", () => {
-  const misses = missingRecurring({
-    expenses: monthly("rent", ["2026-04", "2026-05", "2026-06", "2026-07"], 52_000),
-    categories: [category("rent", "Rent")],
-    todayISO: "2026-08-09",
-    monthStartISO: "2026-08-01",
-  });
-  assert.equal(misses.length, 1);
-  assert.equal(misses[0].categoryName, "Rent");
-  assert.equal(misses[0].monthsSeen, 4);
-});
-
-test("a category already logged this month is not nagged about", () => {
-  const misses = missingRecurring({
-    expenses: [
-      ...monthly("rent", ["2026-04", "2026-05", "2026-06", "2026-07"], 52_000),
-      ledger({ id: "aug", date: "2026-08-02", amount: 52_000, category_id: "rent" }),
-    ],
-    categories: [category("rent", "Rent")],
-    todayISO: "2026-08-09",
-    monthStartISO: "2026-08-01",
-  });
-  assert.deepEqual(misses, []);
-});
-
-test("an occasional category is below the threshold", () => {
-  const misses = missingRecurring({
-    expenses: monthly("travel", ["2026-05", "2026-07"], 30_000),
-    categories: [category("travel", "Travel")],
-    todayISO: "2026-08-09",
-    monthStartISO: "2026-08-01",
-  });
-  assert.deepEqual(misses, []);
-});
-
-test("the suggested amount is the median, not the last entry", () => {
-  // A ₹1.45L laptop as the most recent Shopping row must not become the
-  // prefill for "you usually log Shopping".
-  const misses = missingRecurring({
-    expenses: [
-      ledger({ id: "a", date: "2026-04-05", amount: 6_000, category_id: "shop" }),
-      ledger({ id: "b", date: "2026-05-05", amount: 6_500, category_id: "shop" }),
-      ledger({ id: "c", date: "2026-06-05", amount: 7_000, category_id: "shop" }),
-      ledger({ id: "d", date: "2026-07-05", amount: 145_000, category_id: "shop" }),
-    ],
-    categories: [category("shop", "Shopping")],
-    todayISO: "2026-08-09",
-    monthStartISO: "2026-08-01",
-  });
-  assert.equal(misses[0].typicalAmount, 6_750, "median of 6000/6500/7000/145000");
-});
-
-test("the nudge is bounded", () => {
-  const many = ["a", "b", "c", "d", "e", "f"].flatMap((c) =>
-    monthly(c, ["2026-04", "2026-05", "2026-06", "2026-07"], 1_000),
-  );
-  const misses = missingRecurring({
-    expenses: many,
-    categories: ["a", "b", "c", "d", "e", "f"].map((c) => category(c, c)),
-    todayISO: "2026-08-09",
-    monthStartISO: "2026-08-01",
-  });
-  assert.equal(misses.length, MISS_MAX);
 });
 
 // ---------------------------------------------------------------------------

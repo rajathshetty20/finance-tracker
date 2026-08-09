@@ -198,39 +198,10 @@ export default async function HoldingsPage() {
           </>
         )}
 
-        <table className="mt-4 w-full font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          <tbody>
-            <tr>
-              <td className="py-px pr-2">investments at market</td>
-              <td className="py-px text-right">{fmtINR(investMarket)}</td>
-            </tr>
-            <tr>
-              <td className="py-px pr-2">+ cash in hand</td>
-              <td className="py-px text-right">{fmtINR(cashInHand)}</td>
-            </tr>
-            {cardFloat < 0 && (
-              <tr>
-                <td className="py-px pr-2">− card and wallet float</td>
-                <td className="py-px text-right">{fmtINR(Math.abs(cardFloat))}</td>
-              </tr>
-            )}
-            <tr>
-              <td className="py-px pr-2">− loans outstanding</td>
-              <td className="py-px text-right">{fmtINR(debtPending)}</td>
-            </tr>
-            <tr>
-              <td className="border-t border-rule-soft py-px pr-2 text-ink-2">= net worth</td>
-              <td className="border-t border-rule-soft py-px text-right font-semibold text-ink-2">
-                {fmtINR(netWorth)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
         {liabilities > 0 && (
           <p className="mt-2 text-[0.6875rem] text-ink-3">
-            Owed {fmtINR(liabilities)} in total — {(assets > 0 ? (liabilities / assets) * 100 : 0).toFixed(1)}% of
-            what you hold. Loan figures include interest committed for the whole term, not just what
-            has fallen due.
+            {fmtINR(liabilities)} owed, {(assets > 0 ? (liabilities / assets) * 100 : 0).toFixed(1)}% of what you
+            hold. Loans include interest for the whole term.
           </p>
         )}
       </section>
@@ -253,8 +224,8 @@ export default async function HoldingsPage() {
         </p>
         {realizedGain !== 0 && (
           <p className="mt-0.5 text-[0.6875rem] text-ink-3">
-            Plus {fmtINR(realizedGain)} realized on {closed.length} closed position
-            {closed.length === 1 ? "" : "s"}, already counted in money sources.
+            + {fmtINR(realizedGain)} realized on {closed.length} closed position
+            {closed.length === 1 ? "" : "s"}.
           </p>
         )}
 
@@ -330,10 +301,8 @@ export default async function HoldingsPage() {
           <span className="text-[0.8125rem] tabular-nums text-ink-3">{fmtINR(cashSum)} net</span>
         </div>
         <p className="mt-0.5 text-xs text-ink-3">
-          Typed in by hand — the app never updates these. Home&apos;s balance check compares them
-          against what the ledger implies. Rows are grouped by sign, not by kind: a negative balance
-          is money owed, whatever the account is called.
-          {oldestCash && ` Oldest entry ${daysSince(oldestCash, today)} days old.`}
+          Typed in by hand. Grouped by sign — a negative balance is money owed.
+          {oldestCash && ` Oldest entry ${daysSince(oldestCash, today)}d old.`}
         </p>
 
         {cash.length === 0 ? (
@@ -414,23 +383,14 @@ export default async function HoldingsPage() {
                   </p>
                   {emi && (
                     <p className="mt-1 text-[0.6875rem] text-ink-3">
-                      EMI {fmtINR(emi.amount)} — inferred from the last payment on{" "}
-                      {fmtDate(emi.asOf)}, not a stored figure
-                      {monthsLeft !== null && <> · about {monthsLeft} left at that rate</>}.
+                      EMI {fmtINR(emi.amount)}, inferred from the last payment ({fmtDate(emi.asOf)})
+                      {monthsLeft !== null && <> · ~{monthsLeft} left</>}.
                     </p>
                   )}
                   {implied !== null && (
                     <p className="mt-0.5 text-[0.6875rem] text-ink-3">
-                      {formatXirr(implied)} effective p.a., solved from principal, EMI and total
-                      payable
-                      {stated !== null && (
-                        <>
-                          {" "}
-                          — the description says {stated}%, which is the nominal rate lenders quote;
-                          the two differ by design
-                        </>
-                      )}
-                      .
+                      {formatXirr(implied)} effective p.a.
+                      {stated !== null && <> · {stated}% nominal, as written above</>}.
                     </p>
                   )}
                   {/* The app holds both sides of this comparison and never made
@@ -439,14 +399,10 @@ export default async function HoldingsPage() {
                       this row supports. */}
                   {implied !== null && sinceLoan.get(d.id) != null && (
                     <p className="mt-1 rounded-lg border border-rule bg-surface-2/60 px-2.5 py-1.5 text-[0.6875rem] text-ink-2">
-                      Paying this down early earns a guaranteed{" "}
-                      <span className="tabular-nums">{formatXirr(implied)}</span>. The portfolio has
-                      returned{" "}
+                      Prepaying earns <span className="tabular-nums">{formatXirr(implied)}</span>{" "}
+                      guaranteed; the portfolio returned{" "}
                       <span className="tabular-nums">{formatXirr(sinceLoan.get(d.id)!)}</span> since
-                      this loan started, with risk.{" "}
-                      {(sinceLoan.get(d.id) ?? 0) > implied
-                        ? "Investing has been ahead so far — past returns, not a promise."
-                        : "Clearing it has been the better trade so far."}
+                      this loan started, with risk.
                     </p>
                   )}
                 </li>

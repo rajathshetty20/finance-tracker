@@ -9,7 +9,6 @@ import {
   monthsBetween,
   plannedSeries,
   poolByAssetClass,
-  poolValueAsOf,
   type GoalVerdict,
 } from "@/lib/goals";
 import { fmtINR, fmtMonthYear } from "@/lib/dates";
@@ -62,14 +61,13 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   const myAllocs = allocByGoal.get(goal.id) ?? [];
 
   const pool = poolByAssetClass(invs, entriesByInv);
-  const poolAt = (iso: string) => poolValueAsOf(invs, entriesByInv, iso);
   const today = await appToday();
 
   // Run the full waterfall so this goal's attributed corpus reflects the shared pool.
-  const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today, poolAt);
+  const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today);
   const analysis = analyses.find((a) => a.goal.id === goal.id);
 
-  const series = goal.status === "active" ? plannedSeries(goal, myAllocs, assetClasses) : [];
+  const series = goal.status === "active" ? plannedSeries(goal, myAllocs, assetClasses, today) : [];
 
   const timeLeft = analysis
     ? analysis.projection.monthsRemaining === 0
@@ -86,10 +84,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   const verdictBadge = verdict
     ? GOAL_BADGE[verdict.kind]
     : { label: "", cls: "" };
-  const schedulePct =
-    analysis && analysis.projection.plannedCorpusNow > 0
-      ? Math.round(analysis.schedulePct * 100)
-      : null;
+  const coveragePct = analysis ? Math.round(analysis.coverage * 100) : null;
 
   // Per-class target / have / shortfall, and a suggested split of the monthly SIP
   // (split by the target allocation right now, which is valid even when the
@@ -142,26 +137,10 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         <Stat label="Attributed now" value={fmtINR(attributed)} />
         <Stat label="Funded" value={`${fundedPct}%`} sub="of the final target" />
         <Stat
-          label="Of schedule"
-          value={
-            verdict?.kind === "no-history"
-              ? "—"
-              : schedulePct !== null
-                ? `${schedulePct}%`
-                : "—"
-          }
-          sub={
-            verdict?.kind === "no-history"
-              ? `plan is ${verdict.monthsElapsed}m old`
-              : "vs the plan's own path"
-          }
-          tone={
-            schedulePct === null || verdict?.kind === "no-history"
-              ? undefined
-              : schedulePct >= 100
-                ? "pos"
-                : "neg"
-          }
+          label="Of what it needs"
+          value={coveragePct !== null ? `${coveragePct}%` : "—"}
+          sub="to reach the target on its own"
+          tone={coveragePct === null ? undefined : coveragePct >= 100 ? "pos" : "neg"}
         />
         <Stat label="Time left" value={timeLeft} />
         <Stat
@@ -181,11 +160,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
       {rows.length > 0 && (
         <section>
-          <h2 className="mb-1 text-sm font-medium text-ink-3">Allocation right now (shared pool, soonest-due goals first)</h2>
-          <p className="mb-2 text-xs text-ink-3">
-            Suggested ₹/mo is this year&apos;s amount — contributions are assumed to step up 10%
-            each year from here.
-          </p>
+          <h2 className="mb-2 text-sm font-medium text-ink-3">Allocation, soonest-due goals first</h2>
           <div className="overflow-x-auto rounded-xl border border-rule bg-surface">
             <table className="w-full text-sm">
               <thead>
@@ -276,10 +251,6 @@ function Stat({
 const GOAL_BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
   "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
   due: { label: "due now", cls: "bg-warn-soft text-warn" },
-  funded: { label: "funded", cls: "bg-up-soft text-up" },
-  "will-fund": { label: "on assumptions, funded", cls: "bg-surface-2 text-ink-2" },
-  "no-history": { label: "no history yet", cls: "bg-surface-2 text-ink-2" },
   "on-track": { label: "on track", cls: "bg-up-soft text-up" },
-  "slightly-behind": { label: "slightly behind", cls: "bg-warn-soft text-warn" },
   behind: { label: "behind", cls: "bg-down-soft text-down" },
 };
