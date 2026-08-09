@@ -18,19 +18,10 @@ import type {
 import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass } from "@/lib/goals";
 import { cashflowBases } from "@/lib/money";
 import { appToday } from "@/lib/demo";
-import { currentMonthStartISO, fmtINR as fmt, cashFreshness } from "@/lib/dates";
+import { currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
 import { assetClassColor } from "./ui";
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
-
-// Module scope: reading the clock inside the component body counts as
-// calling an impure function during render.
-function daysSince(iso: string | null, today: string): number {
-  if (!iso) return 0;
-  const then = new Date(iso).getTime();
-  const now = new Date(`${today}T00:00:00Z`).getTime();
-  return Math.max(0, Math.floor((now - then) / 86_400_000));
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -187,12 +178,6 @@ export default async function DashboardPage() {
   const totalEmi = bases.emiTotal;
   const monthlyInvestable = bases.salaryInvestable;
 
-  const oldestCashUpdate =
-    cash.length > 0
-      ? cash.reduce((min, r) => (r.updated_at < min ? r.updated_at : min), cash[0].updated_at)
-      : null;
-
-  const oldestCashAgeDays = daysSince(oldestCashUpdate, today);
 
 
   // Goals: same helper the Goals page uses, so the two pages can never
@@ -333,11 +318,6 @@ export default async function DashboardPage() {
                     Update your cash balances
                   </Link>
                   .
-                  {/* Only when they are actually stale: "all updated today" is
-                      no help next to a request to update them. */}
-                  {oldestCashUpdate && oldestCashAgeDays > 0 && (
-                    <> {cashFreshness(oldestCashAgeDays)}</>
-                  )}
                 </>
               )}
             </span>

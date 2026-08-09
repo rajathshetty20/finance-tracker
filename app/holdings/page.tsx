@@ -15,7 +15,7 @@ import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { marketValueOf } from "@/lib/goals";
 import { inferEmis } from "@/lib/money";
 import { appToday } from "@/lib/demo";
-import { fmtDate, fmtINR, cashFreshness } from "@/lib/dates";
+import { fmtDate, fmtINR } from "@/lib/dates";
 import Disclose from "../Disclose";
 import CashRow from "../cash/CashRow";
 import AddCashForm from "../cash/AddCashForm";
@@ -44,13 +44,6 @@ function flowsFor(inv: Investment, entries: InvestmentEntry[], today: string): C
   return flows;
 }
 
-
-function daysSince(iso: string | null, today: string): number {
-  if (!iso) return 0;
-  const a = new Date(iso).getTime();
-  const b = new Date(`${today}T00:00:00Z`).getTime();
-  return Math.max(0, Math.floor((b - a) / 86_400_000));
-}
 
 export default async function HoldingsPage() {
   const supabase = await createClient();
@@ -147,9 +140,6 @@ export default async function HoldingsPage() {
   const assets = investMarket + Math.max(0, cashSum);
   const netWorth = investMarket + cashSum - debtPending;
   const barTotal = Math.max(1, assets + debtPending);
-
-  const oldestCash =
-    cash.length > 0 ? cash.reduce((m, r) => (r.updated_at < m ? r.updated_at : m), cash[0].updated_at) : null;
 
   const seg = (v: number) => Math.max(0, (v / barTotal) * 100);
 
@@ -302,7 +292,6 @@ export default async function HoldingsPage() {
         </div>
         <p className="mt-0.5 text-xs text-ink-3">
           Typed in by hand. Grouped by sign — a negative balance is money owed.
-          {oldestCash && ` ${cashFreshness(daysSince(oldestCash, today))}`}
         </p>
 
         {cash.length === 0 ? (
@@ -353,7 +342,7 @@ export default async function HoldingsPage() {
         {openDebts.length === 0 ? (
           <p className="mt-2 text-[0.8125rem] text-ink-3">Nothing owed.</p>
         ) : (
-          <ul className="mt-3 space-y-4">
+          <ul className="mt-3 divide-y divide-rule-soft">
             {openDebts.map((d) => {
               const paid = paidBy.get(d.id) ?? 0;
               const payable = Number(d.total_payable);
@@ -365,7 +354,7 @@ export default async function HoldingsPage() {
               const implied = emi ? impliedAnnualRate(principal, emi.amount, payable) : null;
               const monthsLeft = emi && emi.amount > 0 ? Math.ceil(pending / emi.amount) : null;
               return (
-                <li key={d.id}>
+                <li key={d.id} className="py-4 first:pt-0 last:pb-0">
                   <Link href={`/debts/${d.id}`} className="block">
                     {/* Descriptions run to 100+ characters and carry the terms;
                         they wrap rather than truncate. */}
