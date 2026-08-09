@@ -210,37 +210,31 @@ export default async function HoldingsPage() {
           </span>
         </div>
         <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmtINR(investMarket)} market − {fmtINR(investBook)} put in ={" "}
-          <span className={unrealized >= 0 ? "text-up" : "text-down"}>
-            {unrealized >= 0 ? "+" : "−"}
-            {fmtINR(Math.abs(unrealized))} unrealized
-          </span>{" "}
-          · {formatXirr(unrealizedXirr)} XIRR
+          {fmtINR(investMarket)} market − {fmtINR(investBook)} put in
         </p>
-        {/* The open-position return describes what you hold NOW, so it leads;
-            the lifetime figure is the history and follows it. */}
-        <p className="mt-2 text-[0.8125rem] text-ink-2">
-          <span className="font-medium text-ink">
-            {formatXirr(unrealizedXirr)} a year on what you hold now
-          </span>
-          {lifetimeXirr !== null && (
-            <> · {formatXirr(lifetimeXirr)} across everything ever invested</>
-          )}
-          . XIRR — the annual rate that explains your actual pay-ins and their
-          timing.
-        </p>
+
+        {/* Four figures, each labelled, no prose. */}
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-rule-soft pt-3 sm:grid-cols-4">
+          <Figure
+            label="Unrealized gain"
+            value={`${unrealized >= 0 ? "+" : "−"}${fmtINR(Math.abs(unrealized))}`}
+            tone={unrealized >= 0 ? "up" : "down"}
+          />
+          <Figure label="Current XIRR" value={formatXirr(unrealizedXirr)} />
+          <Figure
+            label="Realized gain"
+            value={`${realizedGain >= 0 ? "+" : "−"}${fmtINR(Math.abs(realizedGain))}`}
+            tone={realizedGain >= 0 ? "up" : "down"}
+          />
+          <Figure label="Overall XIRR" value={formatXirr(lifetimeXirr)} />
+        </div>
+
         {biggest && biggestShare >= 0.25 && (
-          <p className="mt-1 text-[0.8125rem] text-ink-2">
+          <p className="mt-3 text-[0.8125rem] text-ink-2">
             <span className="font-medium text-ink">
               {Math.round(biggestShare * 100)}% sits in {biggest.inv.name}
             </span>{" "}
             — the largest single holding.
-          </p>
-        )}
-        {realizedGain !== 0 && (
-          <p className="mt-0.5 text-[0.6875rem] text-ink-3">
-            + {fmtINR(realizedGain)} realized on {closed.length} closed position
-            {closed.length === 1 ? "" : "s"}.
           </p>
         )}
 
@@ -464,6 +458,31 @@ export default async function HoldingsPage() {
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function Figure({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "up" | "down";
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="truncate text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 truncate text-[0.9375rem] font-semibold tabular-nums ${
+          tone === "up" ? "text-up" : tone === "down" ? "text-down" : ""
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }

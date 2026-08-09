@@ -16,10 +16,8 @@ import {
   analyzeGoals,
   formatMonthsLeft,
   goalVerdict,
-  lowerReturns,
   planSummary,
   poolByAssetClass,
-  STRESS_POINTS,
   type GoalAnalysis,
   type GoalVerdict,
 } from "@/lib/goals";
@@ -89,15 +87,6 @@ export default async function PlanPage() {
   const summary = planSummary(analyses);
   const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
 
-  // The same figure at a stated, more pessimistic assumption. Two of the four
-  // goals sit almost entirely in one asset class, so the whole answer moves
-  // with one number typed into the box at the bottom of this page; printing it
-  // only at that number leaves nothing to disagree with.
-  const stressed = planSummary(
-    analyzeGoals(goals, allocByGoal, lowerReturns(assetClasses, STRESS_POINTS), pool, today)
-      .analyses,
-  );
-
   // What a month can commit — computed once, in lib/money.ts, and quoted with
   // its base wherever it appears, so this page and Home cannot drift apart.
   let bases = null;
@@ -123,9 +112,7 @@ export default async function PlanPage() {
   // Independently rounding each of five floats left the shown values ₹1 apart.
   const available = bases?.salaryInvestable == null ? null : Math.round(bases.salaryInvestable);
   const required = Math.round(summary.requiredMonthly);
-  const requiredStressed = Math.round(stressed.requiredMonthly);
   const headroom = available !== null ? available - required : null;
-  const stressHeadroom = available !== null ? available - requiredStressed : null;
 
 
   const totalPool = [...pool.values()].reduce((s, v) => s + v, 0);
@@ -149,14 +136,6 @@ export default async function PlanPage() {
   const byDueDate = [...analyses].sort(
     (a, b) => a.projection.monthsRemaining - b.projection.monthsRemaining,
   );
-  // Same-date goals are filled in UUID order, which is not something a reader
-  // could ever predict; say so rather than presenting it as a due-date rule.
-  const tiedDueDates = new Set(
-    byDueDate
-      .map((a) => a.goal.end_date)
-      .filter((d, i, arr) => arr.indexOf(d) !== i),
-  );
-
   const monthlyByClass = [...summary.byClass.entries()]
     .map(([cls, amt]) => ({ name: classNameById.get(cls) ?? "—", amt, poolNow: pool.get(cls) ?? 0 }))
     .filter((r) => r.amt > 0)
@@ -205,31 +184,6 @@ export default async function PlanPage() {
                 {headroom >= 0 ? "+" : "−"}
                 {fmtINR(Math.abs(headroom))}
               </p>
-              {/* Sensitivity: the same verdict at a stated, worse assumption. */}
-              <div className="mt-3 border-t border-rule-soft pt-3">
-                <p className="text-[0.8125rem] text-ink-2">
-                  <span className="font-medium text-ink">If returns come in {STRESS_POINTS} points lower</span>{" "}
-                  across every asset class ({[...assetClasses]
-                    .filter((c) => Number(c.expected_return) > 0)
-                    .sort((a, b) => (pool.get(b.id) ?? 0) - (pool.get(a.id) ?? 0))
-                    .slice(0, 2)
-                    .map((c) => `${c.name} ${Number(c.expected_return)}→${Math.max(0, Number(c.expected_return) - STRESS_POINTS)}%`)
-                    .join(", ")}
-                  ), the plan needs{" "}
-                  <span className="font-semibold tabular-nums">{fmtINR(requiredStressed)}</span>{" "}
-                  —{" "}
-                  {stressHeadroom !== null && stressHeadroom >= 0 ? (
-                    <span className="tabular-nums text-up">
-                      still affordable, {fmtINR(stressHeadroom)} to spare
-                    </span>
-                  ) : (
-                    <span className="tabular-nums text-down">
-                      short by {fmtINR(Math.abs(stressHeadroom ?? 0))}
-                    </span>
-                  )}
-                  .
-                </p>
-              </div>
             </>
           ) : (
             <p className="mt-3 text-sm text-ink-3">
@@ -317,12 +271,6 @@ export default async function PlanPage() {
             {fmtINR(totalPool - unclaimedTotal)} claimed + {fmtINR(unclaimedTotal)} unclaimed ={" "}
             {fmtINR(totalPool)} invested
           </p>
-          {tiedDueDates.size > 0 && (
-            <p className="mt-1 text-[0.6875rem] text-warn">
-              {tiedDueDates.size === 1 ? "Two goals share a date" : `${tiedDueDates.size} pairs share a date`}
-              ; which fills first is arbitrary. Move one if the order matters.
-            </p>
-          )}
         </section>
       )}
 

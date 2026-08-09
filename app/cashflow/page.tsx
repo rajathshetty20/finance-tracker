@@ -168,7 +168,6 @@ export default async function CashflowPage({
       <section className="rounded-xl border border-rule bg-surface p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 className="text-sm font-medium">{fmtMonthKey(thisMonth)} so far</h2>
-          <span className="text-[0.6875rem] text-ink-3">{currentPhase.name}</span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-3">
           <Cell label="Earned" value={fmtINR(earnedThisMonth)} tone={earnedThisMonth > 0 ? "up" : null} />
@@ -193,7 +192,6 @@ export default async function CashflowPage({
             <h2 className="text-sm font-medium">
               {ledger === "expenses" ? "Spending" : "Income"} by category
             </h2>
-            <span className="text-[0.6875rem] text-ink-3">{currentPhase.name}</span>
           </div>
 
           <div className="mt-3 grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-3 text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">
@@ -209,13 +207,7 @@ export default async function CashflowPage({
                 className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-3 py-1.5 text-[0.8125rem]"
               >
                 <span className="min-w-0">
-                  <Link
-                    href={`/cashflow?${qs({ cat: r.categoryId })}`}
-                    scroll={false}
-                    className="block truncate hover:underline"
-                  >
-                    {r.name}
-                  </Link>
+                  <span className="block truncate">{r.name}</span>
                   {/* Rent and Subscriptions differ by 38x; a column of digits
                       makes you count characters to see it. */}
                   <span className="mt-1 block h-1 overflow-hidden rounded-full bg-surface-2">
@@ -305,7 +297,7 @@ export default async function CashflowPage({
         />
 
         <p className="text-[0.8125rem] text-ink-3">
-          {filtered.length} entr{filtered.length === 1 ? "y" : "ies"} in {currentPhase.name} ·{" "}
+          {filtered.length} entr{filtered.length === 1 ? "y" : "ies"} ·{" "}
           {rangeDescription(range, today)}
           {catFilter && ` · ${categories.find((c) => c.id === catFilter)?.name ?? "category"}`}
           {q && ` · matching “${q}”`} ·{" "}
@@ -377,19 +369,6 @@ export default async function CashflowPage({
         )}
       </section>
 
-      <p className="text-[0.6875rem] text-ink-3">
-        Averages quoted elsewhere use {bases.completedMonths} completed month
-        {bases.completedMonths === 1 ? "" : "s"} of {currentPhase.name}: mean spend{" "}
-        {fmtINR(bases.avgExpense)}, middle month {fmtINR(bases.medianExpense)}.
-        {bases.outlierMonth && (
-          <>
-            {" "}
-            {fmtMonthKey(bases.outlierMonth.month)} was an outlier at{" "}
-            {fmtINR(bases.outlierMonth.spent)}, lifting that mean by{" "}
-            {fmtINR(bases.outlierMonth.liftsAverageBy)}.
-          </>
-        )}
-      </p>
     </div>
   );
 }
