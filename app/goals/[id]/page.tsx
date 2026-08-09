@@ -165,12 +165,22 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           </div>
 
           <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-            {fmtINR(attributed)} of the {fmtINR(needed)} that would reach {fmtINR(target)} on its
-            own by {fmtMonthYear(goal.end_date)}
+            {verdict?.kind === "funded" ? (
+              <>
+                {fmtINR(attributed)} held · reaches {fmtINR(target)} by{" "}
+                {fmtMonthYear(goal.end_date)} on its own
+              </>
+            ) : (
+              <>
+                {fmtINR(attributed)} of the {fmtINR(needed)} that would reach {fmtINR(target)} on
+                its own by {fmtMonthYear(goal.end_date)}
+              </>
+            )}
           </p>
           <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
             {fmtINR(goal.present_cost)} at {fmtMonthYear(goal.created_at.slice(0, 10))} prices ·{" "}
-            {Number(goal.inflation_rate)}% inflation · {fundedPct}% of the final target
+            {Number(goal.inflation_rate)}% inflation
+            {verdict?.kind !== "funded" && <> · {fundedPct}% of the final target</>}
           </p>
 
           {analysis && Math.round(analysis.requiredMonthly) > 0 && (
