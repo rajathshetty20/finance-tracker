@@ -1,8 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <!-- Ledger mark: money in over money out, on a baseline.
+  <!-- Rupee mark: the ₹ from Geist, knocked out of a rounded square.
        Geometry is defined in app/logoMark.ts — keep this file in sync. -->
-  <rect width="128" height="128" rx="28" fill="#18181b"/>
-  <rect x="26" y="30" width="62" height="16" rx="8" fill="#34d399"/>
-  <rect x="26" y="56" width="38" height="16" rx="8" fill="#fb7185"/>
-  <rect x="26" y="86" width="76" height="10" rx="5" fill="#3f3f46"/>
+  <rect width="128" height="128" rx="28" fill="#16191d"/>
+  <path fill="#ffffff" d="M67.06 95.00 41.03 70.90V63.56H57.97Q69.59 63.56 71.68 55.53L71.77 55.27H41.03V48.63H71.77Q69.94 40.34 57.97 40.34H41.03V33.00H86.97V39.64H75.09Q76.84 41.38 77.97 43.61Q79.11 45.84 79.63 48.63H86.97V55.27H79.63Q78.58 62.69 72.91 66.79Q67.23 70.90 57.97 70.90H51.34L77.80 95.00Z"/>
 </svg>
