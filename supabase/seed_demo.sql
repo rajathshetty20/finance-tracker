@@ -347,7 +347,7 @@ begin
 
   -- ── Debt 2: car loan — open, 13 EMIs paid ──────────────────────────────
   insert into public.debts (user_id, description, principal, total_payable, start_date)
-  values (u_id, 'Car loan — BMW 3 Series', 1800000, 2214000,
+  values (u_id, 'Car loan — Hyundai Creta', 500000, 610000,
           (base + make_interval(months => 21, days => 9))::date)
   returning id into debt_car;
   for m in 0..12 loop
