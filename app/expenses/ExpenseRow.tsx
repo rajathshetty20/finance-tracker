@@ -71,15 +71,15 @@ export default function ExpenseRow({
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-2">
       <div className="flex min-w-0 flex-1 items-baseline gap-3">
-        <span className="w-20 text-xs text-ink-3 tabular-nums">{entry.date}</span>
-        <span className="w-32 truncate text-sm">{entry.category?.name ?? "—"}</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{entry.note}</span>
+        <span className="w-20 shrink-0 whitespace-nowrap text-xs text-ink-3 tabular-nums">{entry.date}</span>
+        <span className="min-w-0 flex-1 truncate pr-1 text-sm">{entry.category?.name ?? "—"}</span>
+        <span className="hidden min-w-0 flex-1 truncate text-xs text-ink-3 sm:block">{entry.note}</span>
       </div>
       <span className="text-sm tabular-nums text-down">−₹{Number(entry.amount).toLocaleString("en-IN")}</span>
       {canEdit && (
         <div className="flex items-center gap-3 text-xs">
-          <button onClick={() => setEditing(true)} className="text-ink-3 hover:text-ink">edit</button>
-          <button onClick={onDelete} disabled={pending} className="text-down disabled:opacity-60 hover:text-down">delete</button>
+          <button onClick={() => setEditing(true)} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-ink-3 hover:text-ink">edit</button>
+          <button onClick={onDelete} disabled={pending} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-down disabled:opacity-60 hover:text-down">delete</button>
         </div>
       )}
       {error && <p className="ml-3 text-xs text-down">{error}</p>}

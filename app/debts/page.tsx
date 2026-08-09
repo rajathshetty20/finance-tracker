@@ -29,7 +29,10 @@ export default async function DebtsPage() {
       <header>
         <h1 className="text-2xl font-semibold">Debts</h1>
         <p className="text-sm text-ink-3">
-          Each debt commits to <code>total_payable − principal</code> as interest upfront. EMIs reduce pending. Closing materializes the realized PnL.
+          A loan books all of its interest the day you take it, so pending is
+          everything still owed — principal and interest together. Each EMI
+          reduces it. Closing one records the gain or loss against what you
+          actually paid.
         </p>
       </header>
 

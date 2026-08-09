@@ -70,7 +70,7 @@ export default async function RootLayout({
                     Finance tracker
                   </span>
                   {currentPhase && (
-                    <span className="truncate rounded-full bg-surface-2 px-2 py-0.5 text-[0.75rem] text-ink-2">
+                    <span className="hidden truncate rounded-full bg-surface-2 px-2 py-0.5 text-[0.75rem] text-ink-2 sm:inline-block">
                       {currentPhase.name}
                     </span>
                   )}

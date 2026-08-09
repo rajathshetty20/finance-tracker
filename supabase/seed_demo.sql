@@ -85,12 +85,12 @@ begin
 
   -- ── Phases ─────────────────────────────────────────────────────────────
   insert into public.phases (user_id, name, start_date, end_date, notes)
-  values (u_id, 'First job — Acme Analytics', base, pb - 1,
-          'Product analyst, first full-time role')
+  values (u_id, 'Data analyst — Google', base, pb - 1,
+          'Data analyst, first full-time role')
   returning id into p1;
 
   insert into public.phases (user_id, name, start_date, notes)
-  values (u_id, 'Senior engineer — Nimbus Labs', pb, 'Switched for comp + growth')
+  values (u_id, 'Senior engineer — Meta', pb, 'Switched for comp + growth')
   returning id into p2;
 
   -- ── Categories ─────────────────────────────────────────────────────────
@@ -304,10 +304,10 @@ begin
   -- Close-out mirrors app/investments/actions.ts: final withdrawal with
   -- total_value_after = 0, then a realized_gain source of proceeds − book.
   insert into public.investments (user_id, name, asset_class_id, status, opened_on, closed_on, notes)
-  values (u_id, 'Company ESOPs', ac_eq, 'closed',
+  values (u_id, 'Google ESOPs', ac_eq, 'closed',
           (base + make_interval(months => 3))::date,
           (base + make_interval(months => 21, days => 19))::date,
-          'Acme vested options')
+          'Google vested options')
   returning id into inv_esop;
   insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note) values
     (u_id, inv_esop, (base + make_interval(months => 3))::date,            'contribution', 150000, 150000, 'Exercised vested options'),
@@ -316,7 +316,7 @@ begin
     (u_id, inv_esop, (base + make_interval(months => 21))::date,           'valuation',    0,      235000, null),
     (u_id, inv_esop, (base + make_interval(months => 21, days => 19))::date, 'withdrawal', 240000, 0,      'Close-out');
   insert into public.money_sources (user_id, name, amount, date, kind, investment_id)
-  values (u_id, 'Gain from Company ESOPs', 90000, (base + make_interval(months => 21, days => 19))::date, 'realized_gain', inv_esop);
+  values (u_id, 'Gain from Google ESOPs', 90000, (base + make_interval(months => 21, days => 19))::date, 'realized_gain', inv_esop);
   ms_total := ms_total + 90000;
 
   -- ── Debt 1: phone EMI — fully paid off (closed) ────────────────────────
@@ -360,7 +360,7 @@ begin
   -- Phase rollover, exactly as app/phases/actions.ts computes it.
   -- (Excluded from ms_total: the cash identity skips phase_rollover rows.)
   insert into public.money_sources (user_id, name, amount, date, kind, phase_id)
-  values (u_id, 'Rollover from First job — Acme Analytics', p1_inc - p1_exp, pb - 1, 'phase_rollover', p1);
+  values (u_id, 'Rollover from Data analyst — Google', p1_inc - p1_exp, pb - 1, 'phase_rollover', p1);
 
   -- ── Cash balances — derived from the net-worth identity so it reconciles:
   --    cash = money_sources(excl rollover) + Σ(income−expense) − open book + open principal outstanding

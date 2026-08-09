@@ -91,8 +91,8 @@ export default function MoneySourceRow({ row }: { row: MoneySource }) {
         </div>
         {isManual ? (
           <div className="flex shrink-0 items-center gap-3 text-xs">
-            <button onClick={() => setEditing(true)} className="text-ink-3 hover:text-ink">edit</button>
-            <button onClick={onDelete} disabled={pending} className="text-down disabled:opacity-60 hover:text-down">delete</button>
+            <button onClick={() => setEditing(true)} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-ink-3 hover:text-ink">edit</button>
+            <button onClick={onDelete} disabled={pending} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-down disabled:opacity-60 hover:text-down">delete</button>
           </div>
         ) : (
           <span className="shrink-0 text-xs text-ink-3">auto</span>

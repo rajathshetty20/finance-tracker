@@ -18,7 +18,7 @@
 
   --ink: #16191d;
   --ink-2: #5b6270;
-  --ink-3: #878e9b;
+  --ink-3: #6b7280;
 
   --accent: #0f62d6;
   --accent-ink: #0b4ca8;
@@ -164,6 +164,11 @@ body {
    and strands the page at an arbitrary scale. Pinch-zoom is untouched. */
 html {
   touch-action: manipulation;
+  /* Native control chrome — the date picker's calendar glyph above all —
+     is painted by the browser. Without this it stays black-on-black in
+     dark mode, hiding the only affordance that says the field opens a
+     picker. */
+  color-scheme: light dark;
 }
 
 /* Money lines up in columns without being asked. */

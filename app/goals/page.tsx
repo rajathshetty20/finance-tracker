@@ -108,8 +108,8 @@ export default async function GoalsPage() {
       {analyses.length > 0 && (
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Stat label="Active goals" value={String(analyses.length)} />
-          <Stat label="Invested pool" value={fmtCompact(totalPool)} />
-          <Stat label="Required / month" value={fmtCompact(totalRequired)} />
+          <Stat label="Invested pool" value={fmtINR(totalPool)} />
+          <Stat label="Required / month" value={fmtINR(totalRequired)} />
         </section>
       )}
 

@@ -72,8 +72,8 @@ export default function CashRow({ row }: { row: CashBalance }) {
         {Number(row.amount) < 0 ? "−" : ""}₹{Math.abs(Number(row.amount)).toLocaleString("en-IN")}
       </span>
       <div className="flex items-center gap-3 text-xs">
-        <button onClick={() => setEditing(true)} className="text-ink-3 hover:text-ink">edit</button>
-        <button onClick={onDelete} disabled={pending} className="text-down disabled:opacity-60 hover:text-down">delete</button>
+        <button onClick={() => setEditing(true)} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-ink-3 hover:text-ink">edit</button>
+        <button onClick={onDelete} disabled={pending} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-down disabled:opacity-60 hover:text-down">delete</button>
       </div>
       {error && <p className="ml-3 text-xs text-down">{error}</p>}
     </li>

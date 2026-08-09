@@ -313,6 +313,12 @@ export default async function DashboardPage() {
           Where a month goes
           {!showAverages && <span className="ml-2 text-xs">(needs a completed month)</span>}
         </h2>
+        {showAverages && (
+          <p className="text-xs text-ink-3">
+            Averaged over {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"}.
+            Percentages are shares of what you earn.
+          </p>
+        )}
         {showAverages && avgInvestable !== null ? (
           <>
             <div className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full bg-surface-2">
@@ -321,7 +327,7 @@ export default async function DashboardPage() {
               <span style={{ width: `${Math.max(0, avgInvestable / avgIncome) * 100}%`, background: "var(--up)" }} />
             </div>
             <div className="mt-1">
-              <FlowRow label="Earned" sub="average month" value={fmt(avgIncome)} />
+              <FlowRow label="Earned" sub="all income" value={fmt(avgIncome)} />
               <FlowRow label="Spent" color="var(--down)" value={`−${fmt(avgPastExpense)}`} pct={avgPastExpense / avgIncome} tone="down" />
               <FlowRow label="Debt service" sub="EMI" color="var(--warn)" value={`−${fmt(totalEmi)}`} pct={totalEmi / avgIncome} tone="down" />
               <FlowRow
@@ -346,6 +352,11 @@ export default async function DashboardPage() {
       {headroom !== null && monthlyInvestable !== null && (
         <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink-3">Can you fund the plan?</h2>
+          <p className="text-xs text-ink-3">
+            Measured against salary, not the average above — a SIP is committed
+            out of the pay that arrives every month, and the average is pulled
+            down by earlier, lower-paid ones.
+          </p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Cell label="Goals need" value={fmt(goalsRequired)} />
             <Cell label="Salary investable" value={fmt(monthlyInvestable)} sub="in-hand − expenses − EMI" />

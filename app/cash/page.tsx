@@ -36,7 +36,7 @@ export default async function CashPage() {
           <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {rows.map((r) => <CashRow key={r.id} row={r} />)}
             <li className="flex items-center justify-between gap-3 bg-surface-2 px-4 py-2 text-sm font-medium">
-              <span>Total</span>
+              <span className="flex-1">Total</span>
               <span className={`tabular-nums ${total < 0 ? "text-down" : ""}`}>
                 {total < 0 ? "−" : ""}₹{Math.abs(total).toLocaleString("en-IN")}
               </span>
