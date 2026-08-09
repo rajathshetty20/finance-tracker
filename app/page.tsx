@@ -277,16 +277,16 @@ export default async function DashboardPage() {
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]">
               <Key color="var(--cat-1)" value={fmt(invest_market)} name="invested" />
               <Key color="var(--cat-6)" value={fmt(cashInHand)} name="cash" />
-              {owed_total > 0 && <Key color="var(--debt)" value={`−${fmt(owed_total)}`} name="owed" />}
+              {owed_total > 0 && <Key color="var(--debt)" value={`−${fmt(owed_total)}`} name="debt" />}
             </div>
           </>
         )}
 
         <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmt(invest_market)} invested + {fmt(cashInHand)} cash − {fmt(owed_total)} owed ={" "}
+          {fmt(invest_market)} invested + {fmt(cashInHand)} cash − {fmt(owed_total)} debt ={" "}
           {fmt(NW)}
           {debt_ratio !== null && owed_total > 0 && (
-            <span className="ml-2">· owed is {(debt_ratio * 100).toFixed(1)}% of what you hold</span>
+            <span className="ml-2">· debt is {(debt_ratio * 100).toFixed(1)}% of what you hold</span>
           )}
         </p>
 

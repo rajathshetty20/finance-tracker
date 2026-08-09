@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { updateCash, deleteCash } from "./actions";
 import type { CashBalance } from "@/lib/types";
 import { useGuard } from "../useGuard";
+import RowActions from "../RowActions";
+import FormError from "../FormError";
 
 function daysAgo(iso: string) {
   const then = new Date(iso).getTime();
@@ -47,7 +49,7 @@ export default function CashRow({ row }: { row: CashBalance }) {
 
   if (editing) {
     return (
-      <li className="px-4 py-3">
+      <li className="py-2">
         <form onSubmit={onSave} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_180px_auto]">
           <input type="hidden" name="id" value={row.id} />
           <input name="name" required defaultValue={row.name} autoFocus className="rounded-md border border-rule bg-surface px-2 py-1 text-sm" />
@@ -63,19 +65,18 @@ export default function CashRow({ row }: { row: CashBalance }) {
   }
 
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{row.name}</div>
-        <div className="text-xs text-ink-3">updated {daysAgo(row.updated_at)}</div>
+    <li className="py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm">{row.name}</div>
+          <div className="text-[0.6875rem] text-ink-3">updated {daysAgo(row.updated_at)}</div>
+        </div>
+        <span className={`text-sm tabular-nums ${Number(row.amount) < 0 ? "text-down" : ""}`}>
+          {Number(row.amount) < 0 ? "−" : ""}₹{Math.abs(Number(row.amount)).toLocaleString("en-IN")}
+        </span>
+        <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} disabled={pending} />
       </div>
-      <span className={`text-sm tabular-nums ${Number(row.amount) < 0 ? "text-down" : ""}`}>
-        {Number(row.amount) < 0 ? "−" : ""}₹{Math.abs(Number(row.amount)).toLocaleString("en-IN")}
-      </span>
-      <div className="flex items-center gap-3 text-xs">
-        <button onClick={() => setEditing(true)} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-ink-3 hover:text-ink">edit</button>
-        <button onClick={onDelete} disabled={pending} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-down disabled:opacity-60 hover:text-down">delete</button>
-      </div>
-      {error && <p className="ml-3 text-xs text-down">{error}</p>}
+      <FormError>{error}</FormError>
     </li>
   );
 }

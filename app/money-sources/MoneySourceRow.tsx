@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { updateManualMoneySource, deleteManualMoneySource } from "./actions";
 import type { MoneySource } from "@/lib/types";
 import { useGuard } from "../useGuard";
+import RowActions from "../RowActions";
+import FormError from "../FormError";
 
 const KIND_LABEL: Record<MoneySource["kind"], string> = {
   manual: "Manual",
@@ -90,15 +92,12 @@ export default function MoneySourceRow({ row }: { row: MoneySource }) {
           </span>
         </div>
         {isManual ? (
-          <div className="flex shrink-0 items-center gap-3 text-xs">
-            <button onClick={() => setEditing(true)} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-ink-3 hover:text-ink">edit</button>
-            <button onClick={onDelete} disabled={pending} className="-my-1 inline-flex min-h-[36px] items-center px-2 text-down disabled:opacity-60 hover:text-down">delete</button>
-          </div>
+          <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} disabled={pending} />
         ) : (
           <span className="shrink-0 text-xs text-ink-3">auto</span>
         )}
       </div>
-      {error && <p className="mt-1 text-xs text-down">{error}</p>}
+      <FormError>{error}</FormError>
     </li>
   );
 }

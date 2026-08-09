@@ -5,7 +5,10 @@ import type { Category, EntryWithJoins } from "@/lib/types";
 import { updateExpense, deleteExpense } from "../expenses/actions";
 import { updateIncome, deleteIncome } from "../incomes/actions";
 import { useGuard } from "../useGuard";
+import { fmtDate } from "@/lib/dates";
 import { inputCls, selectCls } from "../ui";
+import RowActions from "../RowActions";
+import FormError from "../FormError";
 
 /**
  * One ledger line, for either book.
@@ -103,7 +106,9 @@ export default function EntryRow({
             <button type="button" onClick={() => setEditing(false)} className="text-ink-3">
               Cancel
             </button>
-            {error && <span className="text-down">{error}</span>}
+          </div>
+          <div className="col-span-2 sm:col-span-4">
+            <FormError>{error}</FormError>
           </div>
         </form>
       </li>
@@ -115,7 +120,7 @@ export default function EntryRow({
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-2.5">
           <span className="w-[68px] shrink-0 whitespace-nowrap text-[0.6875rem] tabular-nums text-ink-3">
-            {fmtDay(entry.date)}
+            {fmtDate(entry.date, "short")}
           </span>
           <span className="min-w-0 truncate text-sm">{entry.category?.name ?? "—"}</span>
         </div>
@@ -126,39 +131,15 @@ export default function EntryRow({
             {kind === "expenses" ? "−" : "+"}₹{Number(entry.amount).toLocaleString("en-IN")}
           </span>
           {canEdit && (
-            <span className="flex items-center gap-2 text-[0.6875rem]">
-              <button
-                onClick={() => setEditing(true)}
-                className="-my-1 inline-flex min-h-[32px] items-center px-1 text-ink-3 hover:text-ink"
-              >
-                edit
-              </button>
-              <button
-                onClick={onDelete}
-                disabled={pending}
-                className="-my-1 inline-flex min-h-[32px] items-center px-1 text-down disabled:opacity-60"
-              >
-                delete
-              </button>
-            </span>
+            <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} disabled={pending} />
           )}
         </div>
       </div>
       {entry.note && (
         <p className="mt-0.5 pl-[78px] text-[0.75rem] leading-snug text-ink-3">{entry.note}</p>
       )}
-      {error && <p className="mt-1 pl-[78px] text-[0.75rem] text-down">{error}</p>}
+      <FormError>{error}</FormError>
     </li>
   );
 }
 
-/** "2026-07-02" → "2 Jul 26". Full ISO strings read as machine output in a list. */
-function fmtDay(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "2-digit",
-    timeZone: "UTC",
-  });
-}

@@ -46,7 +46,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
     <div style={{ backgroundColor: "var(--chart-surface)", border: "1px solid var(--chart-border)", borderRadius: 8, fontSize: 12, padding: "8px 10px", lineHeight: 1.5 }}>
       <div style={{ color: "var(--ink-3)" }}>{fmtDate(Number(label))}</div>
       <div style={{ marginTop: 4 }}>
-        <span style={{ color: "var(--ink-3)" }}>Planned </span>
+        <span style={{ color: "var(--ink-3)" }}>Needed </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(planned)}</span>
       </div>
       <div>
@@ -73,7 +73,7 @@ export default function GoalChart({
 
   return (
     <section className="rounded-xl border border-rule bg-surface p-4">
-      <h2 className="text-sm font-medium text-ink-3">Projection — planned corpus vs target</h2>
+      <h2 className="text-sm font-medium text-ink-3">What it must hold to reach the target</h2>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -108,7 +108,7 @@ export default function GoalChart({
             />
             <Tooltip content={<ChartTooltip />} />
             <Legend verticalAlign="top" height={24} iconType="plainline" wrapperStyle={{ fontSize: 11, color: "var(--ink-3)" }} />
-            <Area isAnimationActive={false} type="monotone" dataKey="planned" name="Planned" stroke="var(--goal)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
+            <Area isAnimationActive={false} type="monotone" dataKey="planned" name="Needed" stroke="var(--goal)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
             <Line isAnimationActive={false} type="monotone" dataKey="target" name="Target" stroke="var(--ink-3)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
             <ReferenceDot
               x={clampedTs}

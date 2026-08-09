@@ -127,9 +127,6 @@ export default async function PlanPage() {
   const headroom = available !== null ? available - required : null;
   const stressHeadroom = available !== null ? available - requiredStressed : null;
 
-  // Goals whose forward SIP is zero contribute nothing to the headline. Two of
-  // them can be the largest goals on the page, and the card used to drop the
-  // "invest …/mo" line entirely, so they vanished from the number to act on.
   // The same subtraction at the median month. A single laptop-and-phone month
   // can move the mean enough to flip Yes to No, and the disclosure that said so
   // was 11px grey text under a verdict it contradicted.
@@ -138,9 +135,6 @@ export default async function PlanPage() {
       ? Math.round(bases.inhandSalary - bases.medianExpense - bases.emiTotal)
       : null;
 
-  const selfFunding = analyses.filter(
-    (a) => Math.round(a.requiredMonthly) === 0 && a.projection.hasPlan,
-  );
 
   const totalPool = [...pool.values()].reduce((s, v) => s + v, 0);
   const inactive = goals.filter((g) => g.status !== "active");
@@ -180,80 +174,57 @@ export default async function PlanPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Plan</h1>
-        <p className="text-sm text-ink-3">
-          One pool, shared by due date. Goals never touch cash or net worth.
-        </p>
+        <p className="text-sm text-ink-3">One pool, claimed by due date.</p>
       </header>
 
       {/* ── The verdict, first thing on the screen ───────────────────────── */}
       {analyses.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-5">
           <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-            The plan needs, per month
+            {available !== null && headroom !== null
+              ? headroom >= 0
+                ? "You can fund the plan"
+                : "You cannot fund the plan"
+              : "The plan needs, per month"}
           </div>
-          <div className="mt-1 text-[2.6rem] font-semibold leading-none tabular-nums">
-            {fmtINR(required)}
+          <div
+            className={`mt-1 text-[2.6rem] font-semibold leading-none tabular-nums ${
+              headroom === null ? "" : headroom >= 0 ? "text-up" : "text-down"
+            }`}
+          >
+            {headroom === null ? fmtINR(required) : fmtINR(Math.abs(headroom))}
           </div>
           <p className="mt-1 text-[0.8125rem] text-ink-3">
-            across{" "}
-            {selfFunding.length > 0
-              ? `${analyses.length - selfFunding.length} of ${analyses.length}`
-              : analyses.length}{" "}
-            active goal{analyses.length === 1 ? "" : "s"}, stepping up 10% a year.
-            {selfFunding.length > 0 && (
-              <> {selfFunding.map((a) => a.goal.name).join(", ")} need nothing further.</>
+            {headroom === null ? (
+              <>across {analyses.length} active goal{analyses.length === 1 ? "" : "s"}</>
+            ) : headroom >= 0 ? (
+              <>spare each month</>
+            ) : (
+              <>short each month</>
             )}
           </p>
 
           {available !== null && headroom !== null && bases ? (
             <>
-              <div
-                className={`mt-4 rounded-lg border p-3 text-sm ${
-                  headroom >= 0 ? "border-up/30 bg-up/[0.07]" : "border-down/30 bg-down/[0.07]"
-                }`}
-              >
-                {headroom >= 0 ? (
-                  <>
-                    <span className="font-semibold">Yes.</span> Salary leaves{" "}
-                    <span className="font-semibold tabular-nums">{fmtINR(available)}</span> a month —{" "}
-                    <span className="font-semibold tabular-nums text-up">{fmtINR(headroom)}</span> to
-                    spare.
-                  </>
-                ) : (
-                  <>
-                    <span className="font-semibold">No.</span> Salary leaves{" "}
-                    <span className="font-semibold tabular-nums">{fmtINR(available)}</span> a month,{" "}
-                    <span className="font-semibold tabular-nums text-down">
-                      {fmtINR(Math.abs(headroom))}
-                    </span>{" "}
-                    short of what the plan asks for.
-                    {summary.shortGoals.length > 0 && (
-                      <>
-                        {" "}
-                        Behind schedule:{" "}
-                        {summary.shortGoals.map((a, i) => (
-                          <span key={a.goal.id}>
-                            {i > 0 && ", "}
-                            <Link href={`/goals/${a.goal.id}`} className="underline">
-                              {a.goal.name}
-                            </Link>
-                          </span>
-                        ))}
-                        .
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-
               <p className="mt-3 font-mono text-[0.6875rem] leading-relaxed tabular-nums text-ink-3">
-                in-hand {fmtINR(bases.inhandSalary ?? 0)} − typical month&apos;s spending{" "}
-                {fmtINR(bases.avgExpense)} − EMI {fmtINR(bases.emiTotal)} = {fmtINR(available)}
+                {fmtINR(available)} salary investable − {fmtINR(required)} the plan needs ={" "}
+                {headroom >= 0 ? "+" : "−"}
+                {fmtINR(Math.abs(headroom))}
               </p>
-              <p className="mt-1 text-[0.6875rem] text-ink-3">
-                Mean of {bases.completedMonths} completed month
-                {bases.completedMonths === 1 ? "" : "s"}; salary only, EMI inferred.
-              </p>
+              {summary.shortGoals.length > 0 && (
+                <p className="mt-2 text-[0.8125rem] text-ink-2">
+                  Behind:{" "}
+                  {summary.shortGoals.map((a, i) => (
+                    <span key={a.goal.id}>
+                      {i > 0 && ", "}
+                      <Link href={`/goals/${a.goal.id}`} className="underline">
+                        {a.goal.name}
+                      </Link>
+                    </span>
+                  ))}
+                  .
+                </p>
+              )}
               {bases.outlierMonth && atMedian !== null && (
                 <p className="mt-1 rounded-lg border border-warn/30 bg-warn-soft/50 p-2 text-[0.75rem] text-ink-2">
                   <span className="font-medium text-ink">
@@ -328,7 +299,6 @@ export default async function PlanPage() {
               key={a.goal.id}
               a={a}
               monthly={summary.byGoal.get(a.goal.id) ?? 0}
-              tiedDate={tiedDueDates.has(a.goal.end_date)}
             />
           ))}
         </section>
@@ -480,11 +450,9 @@ const BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
 function GoalCard({
   a,
   monthly,
-  tiedDate,
 }: {
   a: GoalAnalysis;
   monthly: number;
-  tiedDate: boolean;
 }) {
   const { goal, projection: p, attributed } = a;
   const v = goalVerdict(a);
@@ -501,7 +469,7 @@ function GoalCard({
           <div className="mt-0.5 text-xs text-ink-3">
             {fmtMonthYear(goal.end_date)} ·{" "}
             {p.monthsRemaining === 0 ? "due now" : `${formatMonthsLeft(p.monthsRemaining)} left`}
-            {tiedDate && <span className="ml-1 text-warn">· shares its date</span>}
+
           </div>
         </Link>
         <span

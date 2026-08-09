@@ -85,6 +85,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     ? GOAL_BADGE[verdict.kind]
     : { label: "", cls: "" };
   const coveragePct = analysis ? Math.round(analysis.coverage * 100) : null;
+  const needed = analysis?.projection.fundedCorpus ?? 0;
 
   // Per-class target / have / shortfall, and a suggested split of the monthly SIP
   // (split by the target allocation right now, which is valid even when the
@@ -108,7 +109,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
+      <header className="space-y-1">
         <Link href="/plan" className="text-xs text-ink-3 hover:text-ink">
           ← Plan
         </Link>
@@ -120,39 +121,64 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
             </span>
           )}
           {goal.status !== "active" && (
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-2">
               {goal.status}
             </span>
           )}
         </div>
-        {goal.description && <p className="text-sm text-ink-3">{goal.description}</p>}
         <p className="text-sm text-ink-3">
-          Target {fmtMonthYear(goal.end_date)} · {fmtINR(goal.present_cost)} today @ {Number(goal.inflation_rate)}%
-          inflation
+          {fmtMonthYear(goal.end_date)} · {timeLeft}
+          {goal.description && <> · {goal.description}</>}
         </p>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Target corpus" value={fmtINR(target)} />
-        <Stat label="Attributed now" value={fmtINR(attributed)} />
-        <Stat label="Funded" value={`${fundedPct}%`} sub="of the final target" />
-        <Stat
-          label="Of what it needs"
-          value={coveragePct !== null ? `${coveragePct}%` : "—"}
-          sub="to reach the target on its own"
-          tone={coveragePct === null ? undefined : coveragePct >= 100 ? "pos" : "neg"}
-        />
-        <Stat label="Time left" value={timeLeft} />
-        <Stat
-          label="Required / month"
-          value={analysis && Math.round(analysis.requiredMonthly) > 0 ? fmtINR(analysis.requiredMonthly) : "—"}
-        />
+      {/* Same shape as every other headline in the app: the number, the bar,
+          then the arithmetic. Six equal stat tiles gave the reader no idea
+          which of them was the answer. */}
+      <section className="rounded-xl border border-rule bg-surface p-5">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+          Of what it needs now
+        </div>
+        <div
+          className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${
+            coveragePct === null ? "" : coveragePct >= 100 ? "text-up" : "text-down"
+          }`}
+        >
+          {coveragePct !== null ? `${coveragePct}%` : "—"}
+        </div>
+
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
+          <div
+            className={`h-full rounded-full ${
+              coveragePct !== null && coveragePct >= 100 ? "bg-up" : "bg-down"
+            }`}
+            style={{ width: `${Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, coveragePct ?? 0))}%` }}
+          />
+        </div>
+
+        <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+          {fmtINR(attributed)} of {fmtINR(needed)} needed · target {fmtINR(target)} by{" "}
+          {fmtMonthYear(goal.end_date)}
+        </p>
+        <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+          {fmtINR(goal.present_cost)} at {fmtMonthYear(goal.created_at.slice(0, 10))} prices ·{" "}
+          {Number(goal.inflation_rate)}% inflation · {fundedPct}% of the final target
+        </p>
+
+        {analysis && Math.round(analysis.requiredMonthly) > 0 && (
+          <p className="mt-3 border-t border-rule-soft pt-3 text-[0.8125rem] text-ink-2">
+            Invest{" "}
+            <span className="font-semibold tabular-nums text-ink">
+              {fmtINR(analysis.requiredMonthly)}
+            </span>{" "}
+            a month to close it.
+          </p>
+        )}
       </section>
 
       {!analysis?.projection.hasPlan && (
-        <p className="rounded-xl border border-dashed border-warn bg-warn-soft p-4 text-sm text-ink-2">
-          This goal has no glide path yet. Set the allocation plan below to see progress and the
-          required monthly investment.
+        <p className="rounded-xl border border-dashed border-warn bg-warn-soft p-3 text-[0.8125rem] text-ink-2">
+          No glide path yet — set one below.
         </p>
       )}
 
@@ -160,36 +186,41 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
       {rows.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-ink-3">Allocation, soonest-due goals first</h2>
-          <div className="overflow-x-auto rounded-xl border border-rule bg-surface">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-rule text-left text-xs text-ink-3">
-                  <th className="px-4 py-2 font-medium">Asset class</th>
-                  <th className="px-4 py-2 text-right font-medium">Need now</th>
-                  <th className="px-4 py-2 text-right font-medium">Have</th>
-                  <th className="px-4 py-2 text-right font-medium">Shortfall</th>
-                  <th className="px-4 py-2 text-right font-medium">Suggested ₹/mo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule">
-                {rows.map((r) => (
-                  <tr key={r.classId} className="tabular-nums">
-                    <td className="px-4 py-2">
-                      {r.name}
-                      <span className="ml-2 text-xs text-ink-3">pool {fmtINR(r.poolTotal)}</span>
-                    </td>
-                    <td className="px-4 py-2 text-right">{fmtINR(r.need)}</td>
-                    <td className="px-4 py-2 text-right">{fmtINR(r.have)}</td>
-                    <td className={`px-4 py-2 text-right ${r.shortfall > 0 ? "text-down" : "text-ink-3"}`}>
-                      {r.shortfall > 0 ? fmtINR(r.shortfall) : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right">{r.sipShare > 0 ? fmtINR(r.sipShare) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <h2 className="mb-2 text-sm font-medium text-ink-3">By asset class</h2>
+          {/* A five-column table cannot be read at 402px — "Shortfall" was
+              clipped mid-word and the last column was off-screen. Each class
+              gets a block instead, with the gap called out only when there is
+              one. */}
+          <ul className="divide-y divide-rule-soft rounded-xl border border-rule bg-surface px-4">
+            {rows.map((r) => (
+              <li key={r.classId} className="py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="truncate text-sm">{r.name}</span>
+                  <span className="shrink-0 text-sm tabular-nums">
+                    {fmtINR(r.have)}{" "}
+                    <span className="text-ink-3">of {fmtINR(r.need)}</span>
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className={`h-full rounded-full ${r.shortfall > 0 ? "bg-down" : "bg-up"}`}
+                    style={{
+                      width: `${r.need > 0 ? Math.min(100, (r.have / r.need) * 100) : 100}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+                  {r.shortfall > 0 ? (
+                    <span className="text-down">short {fmtINR(r.shortfall)}</span>
+                  ) : (
+                    "filled"
+                  )}
+                  {r.sipShare > 0 && <> · invest {fmtINR(r.sipShare)}/mo</>} · pool{" "}
+                  {fmtINR(r.poolTotal)}
+                </p>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
@@ -218,32 +249,6 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       </section>
 
       <GoalActions goal={goal} />
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "pos" | "neg";
-}) {
-  const toneCls =
-    tone === "pos"
-      ? "text-up"
-      : tone === "neg"
-        ? "text-down"
-        : "";
-  return (
-    <div className="rounded-xl border border-rule bg-surface p-4">
-      <div className="text-xs text-ink-3">{label}</div>
-      <div className={`mt-1 text-lg font-semibold tabular-nums ${toneCls}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-[0.6875rem] text-ink-3">{sub}</div>}
     </div>
   );
 }

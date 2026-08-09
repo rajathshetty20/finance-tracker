@@ -355,3 +355,60 @@ export function categoryShares(
     })
     .sort((a, b) => b.amount - a.amount);
 }
+
+// ---------------------------------------------------------------------------
+// Per-category: what a typical month costs, and what this one has so far
+// ---------------------------------------------------------------------------
+
+export type CategoryMonthly = {
+  categoryId: string;
+  name: string;
+  /** Mean per completed month. */
+  avg: number;
+  /** Logged so far in the month in progress. */
+  current: number;
+  /** current − avg. Positive means this month is running hot. */
+  delta: number;
+  count: number;
+};
+
+/**
+ * A total per category answers "where did it all go"; it does not answer the
+ * question actually asked of a ledger, which is "is this month unusual, and
+ * where". So each category carries its typical month beside the one running.
+ */
+export function categoryMonthly({
+  rows,
+  categories,
+  monthStartISO,
+  completedMonths,
+}: {
+  rows: Entry[];
+  categories: Category[];
+  monthStartISO: string;
+  completedMonths: number;
+}): CategoryMonthly[] {
+  const nameById = new Map(categories.map((c) => [c.id, c.name]));
+  const acc = new Map<string, { past: number; current: number; count: number }>();
+  for (const e of rows) {
+    const a = acc.get(e.category_id) ?? { past: 0, current: 0, count: 0 };
+    if (e.date >= monthStartISO) a.current += Number(e.amount);
+    else a.past += Number(e.amount);
+    a.count += 1;
+    acc.set(e.category_id, a);
+  }
+  const divisor = Math.max(1, completedMonths);
+  return [...acc.entries()]
+    .map(([categoryId, a]) => {
+      const avg = a.past / divisor;
+      return {
+        categoryId,
+        name: nameById.get(categoryId) ?? "—",
+        avg,
+        current: a.current,
+        delta: a.current - avg,
+        count: a.count,
+      };
+    })
+    .sort((x, y) => y.avg - x.avg || y.current - x.current);
+}

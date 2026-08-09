@@ -14,7 +14,7 @@ import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { marketValueOf } from "@/lib/goals";
 import { inferEmis } from "@/lib/money";
 import { appToday } from "@/lib/demo";
-import { fmtINR } from "@/lib/dates";
+import { fmtDate, fmtINR } from "@/lib/dates";
 import Disclose from "../Disclose";
 import CashRow from "../cash/CashRow";
 import AddCashForm from "../cash/AddCashForm";
@@ -43,31 +43,6 @@ function flowsFor(inv: Investment, entries: InvestmentEntry[], today: string): C
   return flows;
 }
 
-/**
- * A rate the owner typed into the description, e.g. "… @ 12.49%".
- *
- * The implied rate is solved from principal, EMI and total payable and comes
- * out *effective*; a lender quotes *nominal*. Printing only the solved figure
- * next to a description stating a different one invites the reader to conclude
- * the app is wrong, so both are shown and named.
- */
-function statedRateIn(description: string): number | null {
-  const m = description.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) && n > 0 && n < 100 ? n : null;
-}
-
-/** "2026-07-10" → "10 Jul 2026". Raw ISO in prose reads as machine output. */
-function fmtDate(iso: string): string {
-  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 function daysSince(iso: string | null, today: string): number {
   if (!iso) return 0;
@@ -119,6 +94,12 @@ export default async function HoldingsPage() {
   for (const inv of open) openFlows.push(...flowsFor(inv, byInvId.get(inv.id) ?? [], today));
   const unrealizedXirr = xirr(openFlows);
 
+  // Every investment ever made, open and closed, as one money-weighted return.
+  const lifetimeFlows: CashFlow[] = [];
+  for (const inv of invs) lifetimeFlows.push(...flowsFor(inv, byInvId.get(inv.id) ?? [], today));
+  lifetimeFlows.sort((a, b) => (a.date < b.date ? -1 : 1));
+  const lifetimeXirr = xirr(lifetimeFlows);
+
   const realizedGain = closed.reduce((acc, inv) => {
     const es = byInvId.get(inv.id) ?? [];
     const c = es.filter((e) => e.entry_type === "contribution").reduce((a, e) => a + Number(e.amount), 0);
@@ -162,11 +143,12 @@ export default async function HoldingsPage() {
   const assets = investMarket + cashInHand;
   const liabilities = debtPending + Math.abs(cardFloat);
   const netWorth = investMarket + cashSum - debtPending;
+  const barTotal = Math.max(1, assets + liabilities);
 
   const oldestCash =
     cash.length > 0 ? cash.reduce((m, r) => (r.updated_at < m ? r.updated_at : m), cash[0].updated_at) : null;
 
-  const seg = (v: number) => (assets > 0 ? Math.max(0, (v / assets) * 100) : 0);
+  const seg = (v: number) => Math.max(0, (v / barTotal) * 100);
 
   return (
     <div className="space-y-6">
@@ -190,18 +172,28 @@ export default async function HoldingsPage() {
             <div className="mt-4 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
               <span style={{ width: `${seg(investMarket)}%`, background: "var(--cat-1)" }} />
               <span style={{ width: `${seg(cashInHand)}%`, background: "var(--cat-6)" }} />
+              {liabilities > 0 && (
+                <span style={{ width: `${seg(liabilities)}%`, background: "var(--debt)" }} />
+              )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]">
               <Key color="var(--cat-1)" value={fmtINR(investMarket)} name="invested" />
-              <Key color="var(--cat-6)" value={fmtINR(cashInHand)} name="cash in hand" />
+              <Key color="var(--cat-6)" value={fmtINR(cashInHand)} name="cash" />
+              {liabilities > 0 && (
+                <Key color="var(--debt)" value={`−${fmtINR(liabilities)}`} name="debt" />
+              )}
             </div>
+            <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+              {fmtINR(investMarket)} invested + {fmtINR(cashInHand)} cash − {fmtINR(liabilities)}{" "}
+              debt = {fmtINR(netWorth)}
+            </p>
           </>
         )}
 
-        {liabilities > 0 && (
-          <p className="mt-2 text-[0.6875rem] text-ink-3">
-            {fmtINR(liabilities)} owed, {(assets > 0 ? (liabilities / assets) * 100 : 0).toFixed(1)}% of what you
-            hold. Loans include interest for the whole term.
+        {lifetimeXirr !== null && (
+          <p className="mt-3 border-t border-rule-soft pt-3 text-[0.8125rem] text-ink-2">
+            <span className="font-medium text-ink">{formatXirr(lifetimeXirr)} a year</span> across
+            every investment you have made, open and closed.
           </p>
         )}
       </section>
@@ -329,10 +321,15 @@ export default async function HoldingsPage() {
           </>
         )}
 
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <Disclose label="Add cash entry">
             <AddCashForm />
           </Disclose>
+          {/* The audit trail belongs where the question arises — "where did
+              this cash come from" — not only behind a header menu. */}
+          <Link href="/money-sources" className="text-[0.8125rem] text-ink-3 underline hover:text-ink">
+            Where it came from
+          </Link>
         </div>
       </section>
 
@@ -358,7 +355,6 @@ export default async function HoldingsPage() {
               const pct = payable > 0 ? (paid / payable) * 100 : 0;
               const emi = emiById.get(d.id);
               const implied = emi ? impliedAnnualRate(principal, emi.amount, payable) : null;
-              const stated = statedRateIn(d.description);
               const monthsLeft = emi && emi.amount > 0 ? Math.ceil(pending / emi.amount) : null;
               return (
                 <li key={d.id}>
@@ -381,30 +377,21 @@ export default async function HoldingsPage() {
                     {fmtINR(principal)} borrowed + {fmtINR(interest)} interest ={" "}
                     {fmtINR(payable)} payable · {fmtINR(paid)} paid
                   </p>
-                  {emi && (
-                    <p className="mt-1 text-[0.6875rem] text-ink-3">
-                      EMI {fmtINR(emi.amount)}, inferred from the last payment ({fmtDate(emi.asOf)})
-                      {monthsLeft !== null && <> · ~{monthsLeft} left</>}.
-                    </p>
-                  )}
-                  {implied !== null && (
-                    <p className="mt-0.5 text-[0.6875rem] text-ink-3">
-                      {formatXirr(implied)} effective p.a.
-                      {stated !== null && <> · {stated}% nominal, as written above</>}.
-                    </p>
-                  )}
-                  {/* The app holds both sides of this comparison and never made
-                      it: money used to clear a loan earns the loan's rate, risk
-                      free. Whether that beats investing is the only decision
-                      this row supports. */}
-                  {implied !== null && sinceLoan.get(d.id) != null && (
-                    <p className="mt-1 rounded-lg border border-rule bg-surface-2/60 px-2.5 py-1.5 text-[0.6875rem] text-ink-2">
-                      Prepaying earns <span className="tabular-nums">{formatXirr(implied)}</span>{" "}
-                      guaranteed; the portfolio returned{" "}
-                      <span className="tabular-nums">{formatXirr(sinceLoan.get(d.id)!)}</span> since
-                      this loan started, with risk.
-                    </p>
-                  )}
+                  {/* Two rates and a paragraph became one rate and the number
+                      it should be compared against: money that clears a loan
+                      earns the loan's rate, risk free. */}
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+                    {emi && (
+                      <span>
+                        EMI {fmtINR(emi.amount)}
+                        {monthsLeft !== null && <> · ~{monthsLeft} left</>}
+                      </span>
+                    )}
+                    {implied !== null && <span>{formatXirr(implied)} p.a. cost</span>}
+                    {sinceLoan.get(d.id) != null && (
+                      <span>{formatXirr(sinceLoan.get(d.id)!)} p.a. portfolio</span>
+                    )}
+                  </div>
                 </li>
               );
             })}

@@ -4,16 +4,18 @@ import { createClient } from "@/lib/supabase/server";
 import type { AssetClass, Investment, InvestmentEntry } from "@/lib/types";
 import { xirr, formatXirr, type CashFlow } from "@/lib/xirr";
 import { seriesForInvestment } from "@/lib/investmentSeries";
+import { fmtDate, fmtINR } from "@/lib/dates";
+import { appToday } from "@/lib/demo";
+import Disclose from "../../Disclose";
 import AddEntryForm from "./AddEntryForm";
 import CloseForm from "./CloseForm";
 import AssetClassPicker from "./AssetClassPicker";
 import InvestmentChart from "../InvestmentChart";
-import { appToday } from "@/lib/demo";
-
 
 export default async function InvestmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  const today = await appToday();
 
   const [{ data: inv }, { data: entriesData }, { data: classesData }] = await Promise.all([
     supabase.from("investments").select("*").eq("id", id).maybeSingle(),
@@ -30,139 +32,155 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
   const investment = inv as Investment;
   const entries = (entriesData ?? []) as InvestmentEntry[];
   const assetClasses = (classesData ?? []) as AssetClass[];
-  const assetClassName =
-    assetClasses.find((c) => c.id === investment.asset_class_id)?.name ?? "—";
+  const assetClassName = assetClasses.find((c) => c.id === investment.asset_class_id)?.name ?? "—";
+  const isOpen = investment.status === "open";
 
   const book = entries.reduce((a, e) => {
     if (e.entry_type === "contribution") return a + Number(e.amount);
     if (e.entry_type === "withdrawal") return a - Number(e.amount);
     return a;
   }, 0);
-
   const contributions = entries
     .filter((e) => e.entry_type === "contribution")
     .reduce((a, e) => a + Number(e.amount), 0);
-
-  const market =
-    investment.status === "closed"
-      ? 0
-      : entries.length > 0
-        ? Number(entries[0].total_value_after)
-        : 0;
+  const market = isOpen && entries.length > 0 ? Number(entries[0].total_value_after) : 0;
 
   const flows: CashFlow[] = [];
-  const sorted = [...entries].sort((a, b) => (a.date < b.date ? -1 : 1));
-  for (const e of sorted) {
+  for (const e of [...entries].sort((a, b) => (a.date < b.date ? -1 : 1))) {
     if (e.entry_type === "contribution") flows.push({ date: e.date, amount: -Number(e.amount) });
     else if (e.entry_type === "withdrawal") flows.push({ date: e.date, amount: Number(e.amount) });
   }
-  if (investment.status === "open" && market > 0) {
-    flows.push({ date: await appToday(), amount: market });
-  }
+  if (isOpen && market > 0) flows.push({ date: today, amount: market });
   const r = xirr(flows);
 
+  // Open: market − what is still in. Closed: what came out − what went in.
+  const gain = isOpen ? market - book : -book;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Link href="/holdings" className="text-xs text-ink-3 hover:text-ink">← Holdings</Link>
-        </div>
-        <div className="flex items-center gap-2">
+        <Link href="/holdings" className="text-xs text-ink-3 hover:text-ink">
+          ← Holdings
+        </Link>
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">{investment.name}</h1>
-          {investment.status === "closed" && (
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
-              closed {investment.closed_on}
+          {!isOpen && (
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-2">
+              closed {investment.closed_on ? fmtDate(investment.closed_on) : ""}
             </span>
           )}
         </div>
-        <p className="text-sm text-ink-3">{assetClassName} · opened {investment.opened_on}</p>
-        <AssetClassPicker
-          investmentId={investment.id}
-          current={assetClassName}
-          options={assetClasses.map((c) => c.name)}
-        />
+        <p className="text-sm text-ink-3">
+          {assetClassName} · opened {fmtDate(investment.opened_on)}
+        </p>
       </header>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Book (Σ contrib − Σ withdrawals)" value={`₹${book.toLocaleString("en-IN")}`} />
-        <Stat label={investment.status === "open" ? "Market (latest NAV)" : "Market"} value={`₹${market.toLocaleString("en-IN")}`} />
-        <Stat label="XIRR" value={formatXirr(r)} />
+      {/* The headline is the gain, because that is the question. Book and
+          market are the two numbers it comes from, on the line below. */}
+      <section className="rounded-xl border border-rule bg-surface p-5">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+          {isOpen ? "Unrealized" : "Realized"}
+        </div>
+        <div
+          className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${
+            gain >= 0 ? "text-up" : "text-down"
+          }`}
+        >
+          {gain >= 0 ? "+" : "−"}
+          {fmtINR(Math.abs(gain))}
+        </div>
+        <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+          {isOpen ? (
+            <>
+              {fmtINR(market)} market − {fmtINR(book)} in = {gain >= 0 ? "+" : "−"}
+              {fmtINR(Math.abs(gain))}
+            </>
+          ) : (
+            <>
+              {fmtINR(contributions + gain)} out − {fmtINR(contributions)} in = {gain >= 0 ? "+" : "−"}
+              {fmtINR(Math.abs(gain))}
+            </>
+          )}
+          {r !== null && <> · {formatXirr(r)} a year</>}
+        </p>
+        <div className="mt-3">
+          <AssetClassPicker
+            investmentId={investment.id}
+            current={assetClassName}
+            options={assetClasses.map((c) => c.name)}
+          />
+        </div>
       </section>
 
       <InvestmentChart
-        title="Invested vs market over time"
+        title="Invested vs market"
         data={seriesForInvestment(investment, entries)}
         headline={
-          investment.status === "closed"
-            ? // Realized gain = Σ withdrawals − Σ contributions = −book;
-              // the series ends at 0/0, so the default headline would be +0.
+          isOpen
+            ? undefined
+            : // The series ends at 0/0, so the default headline would read +0.
               { gain: -book, pct: contributions > 0 ? (-book / contributions) * 100 : 0 }
-            : undefined
         }
       />
 
-      {investment.status === "open" && (
-        <>
-          <section className="rounded-xl border border-rule bg-surface p-4">
-            <h2 className="mb-3 text-sm font-medium text-ink-3">Add entry</h2>
+      {isOpen && (
+        <section className="flex flex-wrap gap-2">
+          <Disclose label="Add entry" tone="primary">
             <AddEntryForm investmentId={investment.id} />
-          </section>
-          <section>
+          </Disclose>
+          <Disclose label="Close position">
             <CloseForm investmentId={investment.id} suggestedProceeds={market} />
-          </section>
-        </>
+          </Disclose>
+        </section>
       )}
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-ink-3">Entries</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="text-sm font-medium">Entries</h2>
+          <span className="text-[0.6875rem] text-ink-3">{entries.length}</span>
+        </div>
         {entries.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
-            No entries yet.
-          </p>
+          <p className="mt-2 text-[0.8125rem] text-ink-3">Nothing recorded yet.</p>
         ) : (
-          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
+          <ul className="mt-2 divide-y divide-rule-soft">
             {entries.map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-2">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="w-20 text-xs text-ink-3 tabular-nums">{e.date}</span>
-                  <span className="w-28 text-xs">
-                    <EntryTypePill type={e.entry_type} />
+              <li key={e.id} className="py-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex min-w-0 items-baseline gap-2.5">
+                    <span className="w-[68px] shrink-0 text-[0.6875rem] tabular-nums text-ink-3">
+                      {fmtDate(e.date, "short")}
+                    </span>
+                    <span className="truncate text-sm">
+                      {e.entry_type === "contribution"
+                        ? "Invested"
+                        : e.entry_type === "withdrawal"
+                          ? "Withdrew"
+                          : "Valued"}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-sm tabular-nums">
+                      {e.entry_type === "contribution" && (
+                        <span className="text-down">−{fmtINR(Number(e.amount))}</span>
+                      )}
+                      {e.entry_type === "withdrawal" && (
+                        <span className="text-up">+{fmtINR(Number(e.amount))}</span>
+                      )}
+                      {e.entry_type === "valuation" && <span className="text-ink-3">—</span>}
+                    </span>
+                    <span className="block text-[0.6875rem] tabular-nums text-ink-3">
+                      worth {fmtINR(Number(e.total_value_after))}
+                    </span>
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{e.note}</span>
                 </div>
-                <div className="text-right tabular-nums text-xs">
-                  {e.entry_type === "contribution" && <div className="text-down">−₹{Number(e.amount).toLocaleString("en-IN")}</div>}
-                  {e.entry_type === "withdrawal" && <div className="text-up">+₹{Number(e.amount).toLocaleString("en-IN")}</div>}
-                  {e.entry_type === "valuation" && <div className="text-ink-3">—</div>}
-                  <div className="text-ink-3">NAV ₹{Number(e.total_value_after).toLocaleString("en-IN")}</div>
-                </div>
+                {e.note && (
+                  <p className="mt-0.5 pl-[78px] text-[0.75rem] leading-snug text-ink-3">{e.note}</p>
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
-    </div>
-  );
-}
-
-function EntryTypePill({ type }: { type: "contribution" | "withdrawal" | "valuation" }) {
-  const styles: Record<typeof type, string> = {
-    contribution: "bg-down-soft text-down",
-    withdrawal: "bg-up-soft text-up",
-    valuation: "bg-surface-2 text-ink",
-  };
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[type]}`}>
-      {type}
-    </span>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-rule bg-surface p-4">
-      <div className="text-xs text-ink-3">{label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
     </div>
   );
 }

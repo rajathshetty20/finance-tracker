@@ -56,3 +56,23 @@ export function fmtMonthYear(iso: string): string {
   // ones, which looks like a typo rather than a locale.
   return s.replace("Sept ", "Sep ");
 }
+
+/**
+ * "2026-07-10" → "10 Jul 2026"; `short` gives "10 Jul 26".
+ *
+ * One implementation because four files had their own, and three of them let
+ * en-GB abbreviate September to "Sept" — one four-letter month in a column of
+ * three-letter ones, which reads as a typo.
+ */
+export function fmtDate(iso: string, style: "long" | "short" = "long"): string {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(Date.UTC(y, m - 1, d))
+    .toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: style === "short" ? "2-digit" : "numeric",
+      timeZone: "UTC",
+    })
+    .replace("Sept ", "Sep ");
+}

@@ -11,8 +11,9 @@ import type {
 } from "@/lib/types";
 import {
   cashflowBases,
-  categoryShares,
+  categoryMonthly,
   fmtMonthKey,
+  fmtMonthShort,
   monthKeyOf,
 } from "@/lib/money";
 import { appToday } from "@/lib/demo";
@@ -112,14 +113,14 @@ export default async function CashflowPage({
   const spentThisMonth = sumIn(phaseExpenses, monthStart);
 
   // ── Categories ───────────────────────────────────────────────────────────
-  // Every category in the current phase, not a top-six "concentration" story.
-  // Scoped to this phase deliberately: mixing in a previous job's spending
-  // answers a question nobody on this screen is asking.
-  const shares = categoryShares(
-    ledger === "expenses" ? phaseExpenses : phaseIncomes,
+  const byCategory = categoryMonthly({
+    rows: ledger === "expenses" ? phaseExpenses : phaseIncomes,
     categories,
-  );
-  const sharesTotal = shares.reduce((a, r) => a + r.amount, 0);
+    monthStartISO: monthStart,
+    completedMonths: bases.completedMonths,
+  });
+  const avgTotal = byCategory.reduce((a, r) => a + r.avg, 0);
+  const currentTotal = byCategory.reduce((a, r) => a + r.current, 0);
 
   // ── The ledger ───────────────────────────────────────────────────────────
   const rows = ledger === "expenses" ? allExpenses : allIncomes;
@@ -179,7 +180,7 @@ export default async function CashflowPage({
       </section>
 
       {/* ── Categories ─────────────────────────────────────────────────── */}
-      {shares.length > 0 && (
+      {byCategory.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h2 className="text-sm font-medium">
@@ -187,36 +188,51 @@ export default async function CashflowPage({
             </h2>
             <span className="text-[0.6875rem] text-ink-3">{currentPhase.name}</span>
           </div>
-          <p className="mt-0.5 text-xs text-ink-3">Tap one to filter the ledger.</p>
-          <ul className="mt-3 space-y-2">
-            {shares.map((s, i) => (
-              <li key={s.categoryId} className="grid grid-cols-[1fr_auto] gap-x-2 text-[0.8125rem]">
+
+          <div className="mt-3 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">
+            <span>Category</span>
+            <span className="w-20 text-right">Avg / mo</span>
+            <span className="w-20 text-right">{fmtMonthShort(thisMonth)}</span>
+          </div>
+          <ul className="mt-1 divide-y divide-rule-soft">
+            {byCategory.map((r) => (
+              <li
+                key={r.categoryId}
+                className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-1.5 text-[0.8125rem]"
+              >
                 <Link
-                  href={`/cashflow?${qs({ cat: s.categoryId })}`}
+                  href={`/cashflow?${qs({ cat: r.categoryId })}`}
                   scroll={false}
                   className="truncate hover:underline"
                 >
-                  {s.name}
+                  {r.name}
                 </Link>
-                <span className="tabular-nums text-ink-2">
-                  {fmtINR(s.amount)}
-                  <span className="ml-2 text-ink-3">{(s.share * 100).toFixed(1)}%</span>
-                </span>
-                <span className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{ width: `${s.share * 100}%`, background: `var(--cat-${(i % 8) + 1})` }}
-                  />
+                <span className="w-20 text-right tabular-nums text-ink-2">{fmtINR(r.avg)}</span>
+                <span
+                  className={`w-20 text-right tabular-nums ${
+                    r.current === 0
+                      ? "text-ink-3"
+                      : r.delta > r.avg * 0.25 && r.avg > 0
+                        ? "text-warn"
+                        : ""
+                  }`}
+                >
+                  {r.current === 0 ? "—" : fmtINR(r.current)}
                 </span>
               </li>
             ))}
+            <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t border-rule pt-1.5 text-[0.8125rem] font-semibold">
+              <span>Total</span>
+              <span className="w-20 text-right tabular-nums">{fmtINR(avgTotal)}</span>
+              <span className="w-20 text-right tabular-nums">{fmtINR(currentTotal)}</span>
+            </li>
           </ul>
-          <p className="mt-3 border-t border-rule-soft pt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-            {shares.length} categor{shares.length === 1 ? "y" : "ies"} · {fmtINR(sharesTotal)} total
+          <p className="mt-2 text-[0.6875rem] text-ink-3">
+            Average over {bases.completedMonths} completed month
+            {bases.completedMonths === 1 ? "" : "s"}. Amber where this month is running well above it.
           </p>
         </section>
       )}
-
 
       {/* ── Ledger ─────────────────────────────────────────────────────── */}
       <section className="space-y-3">

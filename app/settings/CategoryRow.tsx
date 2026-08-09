@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { renameCategory, deleteCategory } from "./actions";
 import type { Category } from "@/lib/types";
 import { useGuard } from "../useGuard";
+import RowActions from "../RowActions";
+import FormError from "../FormError";
 
 export default function CategoryRow({
   category,
@@ -49,7 +51,8 @@ export default function CategoryRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 py-2">
+    <div className="py-2">
+      <div className="flex items-center justify-between gap-3">
       {editing ? (
         <form onSubmit={onRename} className="flex flex-1 items-center gap-2">
           <input type="hidden" name="id" value={category.id} />
@@ -73,23 +76,16 @@ export default function CategoryRow({
             <span className="block truncate text-sm">{category.name}</span>
             <span className="block text-[0.6875rem] tabular-nums text-ink-3">{usage}</span>
           </span>
-          <div className="flex shrink-0 items-center gap-3 text-xs">
-            <button onClick={() => setEditing(true)} className="text-ink-3 hover:text-ink">
-              rename
-            </button>
-            {!inUse && (
-              <button
-                onClick={onDelete}
-                disabled={pending}
-                className="text-down disabled:opacity-60"
-              >
-                delete
-              </button>
-            )}
-          </div>
+          <RowActions
+            onEdit={() => setEditing(true)}
+            onDelete={inUse ? undefined : onDelete}
+            disabled={pending}
+            editLabel="Rename"
+          />
         </>
       )}
-      {error && <p className="ml-3 text-xs text-down">{error}</p>}
+      </div>
+      <FormError>{error}</FormError>
     </div>
   );
 }

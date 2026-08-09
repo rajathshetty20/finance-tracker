@@ -5,18 +5,20 @@ import { usePathname } from "next/navigation";
 import { isActive, NAV_LINKS } from "./navLinks";
 
 /**
- * Full destination list. Desktop only — phones use the bottom bar.
+ * The four questions, desktop only — phones use the bottom bar.
  *
- * No icons here, unlike the bottom bar. Nine icon+label pills wrapped onto a
- * second row inside the 3xl content column, which reads as an accident; the
- * labels alone fit on one line and the icons were carrying no meaning the word
- * next to them didn't already.
+ * Only the primary links: Settings and Money sources live in the header menu,
+ * and listing them here as well put the same two destinations in two places on
+ * the same screen.
+ *
+ * No icons, unlike the bottom bar — the labels alone fit on one line and the
+ * icons carried no meaning the word next to them didn't already.
  */
 export default function Nav() {
   const pathname = usePathname();
   return (
     <div className="mt-2 flex flex-wrap gap-1 text-[0.8125rem]">
-      {NAV_LINKS.map(({ href, label }) => {
+      {NAV_LINKS.filter((l) => l.primary).map(({ href, label }) => {
         const active = isActive(pathname, href);
         return (
           <Link

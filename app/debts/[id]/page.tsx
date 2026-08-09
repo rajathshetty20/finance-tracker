@@ -5,157 +5,139 @@ import type { Debt, DebtPayment, Investment, InvestmentEntry } from "@/lib/types
 import { impliedAnnualRate } from "@/lib/debtRate";
 import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { formatXirr } from "@/lib/xirr";
+import { fmtDate, fmtINR } from "@/lib/dates";
+import { appToday } from "@/lib/demo";
+import Disclose from "../../Disclose";
 import AddPaymentForm from "./AddPaymentForm";
 import CloseDebtForm from "./CloseDebtForm";
-import { appToday } from "@/lib/demo";
-
 
 export default async function DebtDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  const today = await appToday();
 
-  const [
-    { data: debtData },
-    { data: paymentsData },
-    { data: invsData },
-    { data: entriesData },
-  ] = await Promise.all([
-    supabase.from("debts").select("*").eq("id", id).maybeSingle(),
-    supabase
-      .from("debt_payments")
-      .select("*")
-      .eq("debt_id", id)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase.from("investments").select("*"),
-    supabase.from("investment_entries").select("*"),
-  ]);
+  const [{ data: debtData }, { data: paymentsData }, { data: invsData }, { data: entriesData }] =
+    await Promise.all([
+      supabase.from("debts").select("*").eq("id", id).maybeSingle(),
+      supabase
+        .from("debt_payments")
+        .select("*")
+        .eq("debt_id", id)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false }),
+      supabase.from("investments").select("*"),
+      supabase.from("investment_entries").select("*"),
+    ]);
 
   if (!debtData) notFound();
   const debt = debtData as Debt;
   const payments = (paymentsData ?? []) as DebtPayment[];
   const invs = (invsData ?? []) as Investment[];
   const allEntries = (entriesData ?? []) as InvestmentEntry[];
+  const isOpen = debt.status === "open";
 
   const paid = payments.reduce((a, p) => a + Number(p.amount), 0);
-  const pending = Number(debt.total_payable) - paid;
-  const interestCommit = Number(debt.total_payable) - Number(debt.principal);
-  const closureAmount = Number(debt.principal) - paid;
+  const payable = Number(debt.total_payable);
+  const principal = Number(debt.principal);
+  const pending = payable - paid;
+  const interest = payable - principal;
+  const pct = payable > 0 ? (paid / payable) * 100 : 0;
+  const closureAmount = principal - paid;
 
   const latestEmi = payments.length > 0 ? Number(payments[0].amount) : null;
-  const debtRate =
-    latestEmi !== null
-      ? impliedAnnualRate(Number(debt.principal), latestEmi, Number(debt.total_payable))
-      : null;
+  const implied = latestEmi !== null ? impliedAnnualRate(principal, latestEmi, payable) : null;
+  const monthsLeft = latestEmi && latestEmi > 0 ? Math.ceil(pending / latestEmi) : null;
 
-  const periodEnd = debt.status === "closed" && debt.closed_on ? debt.closed_on : await appToday();
   const entriesByInvId = new Map<string, InvestmentEntry[]>();
   for (const inv of invs) entriesByInvId.set(inv.id, []);
-  for (const e of allEntries) {
-    const arr = entriesByInvId.get(e.investment_id);
-    if (arr) arr.push(e);
-  }
+  for (const e of allEntries) entriesByInvId.get(e.investment_id)?.push(e);
+  const periodEnd = !isOpen && debt.closed_on ? debt.closed_on : today;
   const periodXirr = portfolioXirrOverPeriod(invs, entriesByInvId, debt.start_date, periodEnd);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="space-y-1">
-        <Link href="/holdings" className="text-xs text-ink-3 hover:text-ink">← Holdings</Link>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">{debt.description}</h1>
-          {debt.status === "closed" && (
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
-              closed {debt.closed_on}
+        <Link href="/holdings" className="text-xs text-ink-3 hover:text-ink">
+          ← Holdings
+        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold leading-snug">{debt.description}</h1>
+          {!isOpen && (
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-2">
+              closed {debt.closed_on ? fmtDate(debt.closed_on) : ""}
             </span>
           )}
         </div>
-        <p className="text-sm text-ink-3">started {debt.start_date}</p>
+        <p className="text-sm text-ink-3">started {fmtDate(debt.start_date)}</p>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Principal" value={`₹${Number(debt.principal).toLocaleString("en-IN")}`} />
-        <Stat label="Total payable" value={`₹${Number(debt.total_payable).toLocaleString("en-IN")}`} />
-        <Stat label="Paid" value={`₹${paid.toLocaleString("en-IN")}`} />
-        <Stat label={debt.status === "open" ? "Pending" : "Closure amount"} value={debt.status === "open"
-          ? `₹${pending.toLocaleString("en-IN")}`
-          : `${closureAmount >= 0 ? "+" : "−"}₹${Math.abs(closureAmount).toLocaleString("en-IN")}`
-        } />
-      </section>
+      <section className="rounded-xl border border-rule bg-surface p-5">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+          {isOpen ? "Still to pay" : "Settled"}
+        </div>
+        <div className="mt-1 text-[2.2rem] font-semibold leading-none tabular-nums">
+          {fmtINR(isOpen ? pending : paid)}
+        </div>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-ink-3">
-        {payments.length > 0 && (
-          <span>
-            Latest EMI: <strong className="tabular-nums text-ink">₹{Number(payments[0].amount).toLocaleString("en-IN")}</strong>
-            <span className="ml-1 text-ink-3">(paid {payments[0].date})</span>
-          </span>
-        )}
-        {debt.status === "open" && (
-          <span>Interest committed upfront: ₹{interestCommit.toLocaleString("en-IN")}</span>
-        )}
-      </div>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-ink-3">Cost vs portfolio return</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Stat label="Implied annual rate*" value={formatXirr(debtRate)} />
-          <Stat
-            label={`Portfolio XIRR (${debt.start_date} → ${periodEnd})`}
-            value={formatXirr(periodXirr)}
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
+          <div
+            className="h-full rounded-full bg-debt"
+            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
           />
         </div>
-        <p className="text-xs text-ink-3">
-          {latestEmi !== null ? (
-            <>
-              * Assumes a constant monthly EMI of ₹{latestEmi.toLocaleString("en-IN")}.
-            </>
-          ) : (
-            <>* Add an EMI payment to estimate the implied rate.</>
-          )}
+        <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+          {fmtINR(principal)} borrowed + {fmtINR(interest)} interest = {fmtINR(payable)} ·{" "}
+          {fmtINR(paid)} paid ({pct.toFixed(0)}%)
         </p>
+
+        {/* One rate for what it costs, one for what the money would have done
+            instead. Prepaying earns the first, risk free. */}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-0.5 border-t border-rule-soft pt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+          {latestEmi !== null && (
+            <span>
+              EMI {fmtINR(latestEmi)}
+              {monthsLeft !== null && isOpen && <> · ~{monthsLeft} left</>}
+            </span>
+          )}
+          {implied !== null && <span>{formatXirr(implied)} p.a. cost</span>}
+          {periodXirr !== null && <span>{formatXirr(periodXirr)} p.a. portfolio</span>}
+        </div>
       </section>
 
-      {debt.status === "open" && (
-        <>
-          <section className="rounded-xl border border-rule bg-surface p-4">
-            <h2 className="mb-3 text-sm font-medium text-ink-3">Add EMI</h2>
+      {isOpen && (
+        <section className="flex flex-wrap gap-2">
+          <Disclose label="Add EMI" tone="primary">
             <AddPaymentForm debtId={debt.id} />
-          </section>
-
-          <section>
+          </Disclose>
+          <Disclose label="Close this debt">
             <CloseDebtForm debtId={debt.id} expectedClosureAmount={closureAmount} />
-          </section>
-        </>
+          </Disclose>
+        </section>
       )}
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-ink-3">Payments</h2>
+      <section className="rounded-xl border border-rule bg-surface p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 className="text-sm font-medium">Payments</h2>
+          <span className="text-[0.6875rem] tabular-nums text-ink-3">
+            {payments.length} · {fmtINR(paid)}
+          </span>
+        </div>
         {payments.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
-            No EMIs paid yet.
-          </p>
+          <p className="mt-2 text-[0.8125rem] text-ink-3">Nothing paid yet.</p>
         ) : (
-          <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
+          <ul className="mt-2 divide-y divide-rule-soft">
             {payments.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="w-20 text-xs text-ink-3 tabular-nums">{p.date}</span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-ink-3">{p.note}</span>
-                </div>
-                <span className="text-sm tabular-nums">₹{Number(p.amount).toLocaleString("en-IN")}</span>
+              <li key={p.id} className="flex items-baseline justify-between gap-3 py-2">
+                <span className="w-[92px] shrink-0 text-[0.6875rem] tabular-nums text-ink-3">
+                  {fmtDate(p.date)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[0.75rem] text-ink-3">{p.note}</span>
+                <span className="shrink-0 text-sm tabular-nums">{fmtINR(Number(p.amount))}</span>
               </li>
             ))}
           </ul>
         )}
       </section>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-rule bg-surface p-3">
-      <div className="text-xs text-ink-3">{label}</div>
-      <div className="mt-1 text-sm font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
