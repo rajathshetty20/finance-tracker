@@ -127,14 +127,6 @@ export default async function PlanPage() {
   const headroom = available !== null ? available - required : null;
   const stressHeadroom = available !== null ? available - requiredStressed : null;
 
-  // The same subtraction at the median month. A single laptop-and-phone month
-  // can move the mean enough to flip Yes to No, and the disclosure that said so
-  // was 11px grey text under a verdict it contradicted.
-  const atMedian =
-    bases && bases.inhandSalary !== null
-      ? Math.round(bases.inhandSalary - bases.medianExpense - bases.emiTotal)
-      : null;
-
 
   const totalPool = [...pool.values()].reduce((s, v) => s + v, 0);
   const inactive = goals.filter((g) => g.status !== "active");
@@ -174,7 +166,9 @@ export default async function PlanPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold">Plan</h1>
-        <p className="text-sm text-ink-3">One pool, claimed by due date.</p>
+        <p className="text-sm text-ink-3">
+          Whether your investments will cover what you&apos;re saving for.
+        </p>
       </header>
 
       {/* ── The verdict, first thing on the screen ───────────────────────── */}
@@ -183,8 +177,8 @@ export default async function PlanPage() {
           <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
             {available !== null && headroom !== null
               ? headroom >= 0
-                ? "You can fund the plan"
-                : "You cannot fund the plan"
+                ? "Spare each month"
+                : "Short each month"
               : "The plan needs, per month"}
           </div>
           <div
@@ -198,9 +192,9 @@ export default async function PlanPage() {
             {headroom === null ? (
               <>across {analyses.length} active goal{analyses.length === 1 ? "" : "s"}</>
             ) : headroom >= 0 ? (
-              <>spare each month</>
+              <>You can fund the plan.</>
             ) : (
-              <>short each month</>
+              <>You cannot fund the plan as it stands.</>
             )}
           </p>
 
@@ -211,46 +205,6 @@ export default async function PlanPage() {
                 {headroom >= 0 ? "+" : "−"}
                 {fmtINR(Math.abs(headroom))}
               </p>
-              {summary.shortGoals.length > 0 && (
-                <p className="mt-2 text-[0.8125rem] text-ink-2">
-                  Behind:{" "}
-                  {summary.shortGoals.map((a, i) => (
-                    <span key={a.goal.id}>
-                      {i > 0 && ", "}
-                      <Link href={`/goals/${a.goal.id}`} className="underline">
-                        {a.goal.name}
-                      </Link>
-                    </span>
-                  ))}
-                  .
-                </p>
-              )}
-              {bases.outlierMonth && atMedian !== null && (
-                <p className="mt-1 rounded-lg border border-warn/30 bg-warn-soft/50 p-2 text-[0.75rem] text-ink-2">
-                  <span className="font-medium text-ink">
-                    {atMedian - required >= 0 === headroom! >= 0
-                      ? "Same answer at your median month."
-                      : `Flips to ${atMedian - required >= 0 ? "Yes" : "No"} at your median month.`}
-                  </span>{" "}
-                  {fmtINR(bases.medianExpense)} spending leaves {fmtINR(atMedian)} —{" "}
-                  {atMedian - required >= 0
-                    ? `${fmtINR(atMedian - required)} spare`
-                    : `${fmtINR(required - atMedian)} short`}
-                  .
-                </p>
-              )}
-              {bases.outlierMonth && (
-                <p className="mt-1 text-[0.6875rem] text-warn">
-                  {new Date(bases.outlierMonth.month + "-01").toLocaleDateString("en-GB", {
-                    month: "long",
-                    year: "numeric",
-                    timeZone: "UTC",
-                  })}{" "}
-                  alone ({fmtINR(bases.outlierMonth.spent)}) lifts that mean by{" "}
-                  {fmtINR(bases.outlierMonth.liftsAverageBy)} a month.
-                </p>
-              )}
-
               {/* Sensitivity: the same verdict at a stated, worse assumption. */}
               <div className="mt-3 border-t border-rule-soft pt-3">
                 <p className="text-[0.8125rem] text-ink-2">
@@ -293,7 +247,7 @@ export default async function PlanPage() {
         </p>
       ) : (
         <section className="space-y-3">
-          <h2 className="text-sm font-medium text-ink-3">Goals, soonest first</h2>
+          <h2 className="text-sm font-medium">Goals, soonest first</h2>
           {byDueDate.map((a) => (
             <GoalCard
               key={a.goal.id}
@@ -307,41 +261,55 @@ export default async function PlanPage() {
       {/* ── Where the pool actually went ─────────────────────────────────── */}
       {analyses.length > 0 && totalPool > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink-3">How the pool is shared</h2>
+          <h2 className="text-sm font-medium">How the pool is shared</h2>
           <p className="mt-0.5 text-xs text-ink-3">
             {fmtCompact(totalPool)} invested, claimed soonest-due first.
           </p>
-          <ul className="mt-3 space-y-2">
-            {byDueDate.map((a) => (
-              <li key={a.goal.id} className="grid grid-cols-[1fr_auto] gap-x-3 text-[0.8125rem]">
-                <span className="truncate">
+          {/* One stacked bar, as on Home: the whole pool in a single row, with
+              the unclaimed remainder visible as a segment rather than as a
+              footnote. Five identically-coloured tracks could not be compared
+              against each other anyway. */}
+          <div className="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+            {byDueDate.map((a, i) => (
+              <span
+                key={a.goal.id}
+                style={{
+                  width: `${(a.attributed / totalPool) * 100}%`,
+                  background: `var(--cat-${(i % 8) + 1})`,
+                }}
+              />
+            ))}
+            {unclaimedTotal > 0 && (
+              <span
+                style={{ width: `${(unclaimedTotal / totalPool) * 100}%`, background: "var(--cat-other)" }}
+              />
+            )}
+          </div>
+          <ul className="mt-2.5 space-y-1">
+            {byDueDate.map((a, i) => (
+              <li key={a.goal.id} className="flex items-baseline gap-1.5 text-[0.8125rem]">
+                <i
+                  className="h-2 w-2 shrink-0 -translate-y-px rounded-sm"
+                  style={{ background: `var(--cat-${(i % 8) + 1})` }}
+                />
+                <span className="min-w-0 flex-1 truncate">
                   {a.goal.name}
                   <span className="ml-2 text-ink-3">{fmtMonthYear(a.goal.end_date)}</span>
                 </span>
                 <span className="tabular-nums">{fmtINR(a.attributed)}</span>
-                <span className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                  <span
-                    className="block h-full rounded-full bg-accent"
-                    style={{ width: `${Math.max(0.5, (a.attributed / totalPool) * 100)}%` }}
-                  />
-                </span>
               </li>
             ))}
             {unclaimed.map((r) => (
-              <li key={r.name} className="grid grid-cols-[1fr_auto] gap-x-3 text-[0.8125rem]">
-                <span className="truncate text-ink-2">
+              <li key={r.name} className="flex items-baseline gap-1.5 text-[0.8125rem]">
+                <i
+                  className="h-2 w-2 shrink-0 -translate-y-px rounded-sm"
+                  style={{ background: "var(--cat-other)" }}
+                />
+                <span className="min-w-0 flex-1 truncate text-ink-2">
                   Unclaimed — {r.name}
-                  <span className="ml-2 text-ink-3">
-                    {r.targeted ? "every goal already full" : "no goal targets this class"}
-                  </span>
+                  <span className="ml-2 text-ink-3">{r.targeted ? "goals full" : "untargeted"}</span>
                 </span>
                 <span className="tabular-nums text-ink-2">{fmtINR(r.amt)}</span>
-                <span className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                  <span
-                    className="block h-full rounded-full bg-ink-3"
-                    style={{ width: `${Math.max(0.5, (r.amt / totalPool) * 100)}%` }}
-                  />
-                </span>
               </li>
             ))}
           </ul>
@@ -361,7 +329,7 @@ export default async function PlanPage() {
       {/* ── Where the monthly money should go ────────────────────────────── */}
       {monthlyByClass.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink-3">Where the monthly money goes</h2>
+          <h2 className="text-sm font-medium">Where the monthly money goes</h2>
           <p className="mt-0.5 text-xs text-ink-3">{fmtINR(required)}, split by class.</p>
           <ul className="mt-3 divide-y divide-rule-soft">
             {monthlyByClass.map((r) => (
@@ -379,7 +347,7 @@ export default async function PlanPage() {
 
       {inactive.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-ink-3">Achieved / archived</h2>
+          <h2 className="mb-2 text-sm font-medium">Achieved / archived</h2>
           <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface">
             {inactive.map((g) => (
               <li key={g.id}>
@@ -406,35 +374,13 @@ export default async function PlanPage() {
 
       {/* ── The numbers every verdict above rests on ─────────────────────── */}
       <section className="rounded-xl border border-rule bg-surface p-4">
-        <h2 className="text-sm font-medium text-ink-3">Assumptions this plan rests on</h2>
-        <p className="mt-0.5 text-xs text-ink-3">Every verdict above moves with these.</p>
+        <h2 className="text-sm font-medium">Expected returns</h2>
+        <p className="mt-0.5 text-xs text-ink-3">
+          Assumed growth per asset class. Every figure on this page moves with them.
+        </p>
         <div className="mt-3">
           <AssetClassesEditor assetClasses={assetClasses} />
         </div>
-        {analyses.length > 0 && (
-          <ul className="mt-4 divide-y divide-rule-soft border-t border-rule pt-1">
-            {analyses.map((a) => (
-              <li
-                key={a.goal.id}
-                className="flex flex-col gap-0.5 py-1.5 text-[0.8125rem] sm:flex-row sm:items-baseline sm:justify-between sm:gap-3"
-              >
-                {/* Stacked below sm: side by side, `truncate` clipped these
-                    names to a single letter on a phone. */}
-                <span className="truncate text-ink-2">{a.goal.name}</span>
-                {/* NOT "today": targetCorpus inflates present_cost from the
-                    goal's creation date, which is the anchor the plan was
-                    priced at. Labelling it "today" made the arithmetic look
-                    wrong to anyone who checked it — 4Cr at 6% to 2052 is
-                    ₹17.9Cr from today but ₹20.7Cr from Feb 2024. */}
-                <span className="shrink-0 tabular-nums text-ink-3">
-                  {Number(a.goal.inflation_rate)}% inflation ·{" "}
-                  {fmtINR(Number(a.goal.present_cost))} at {fmtMonthYear(a.goal.created_at.slice(0, 10))}{" "}
-                  prices → {fmtCompact(a.projection.targetCorpus)} by {fmtMonthYear(a.goal.end_date)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { isDemoUser } from "@/lib/demo";
@@ -70,14 +71,30 @@ export default async function RootLayout({
                   <span className="whitespace-nowrap text-[0.9375rem] font-semibold">
                     Finance tracker
                   </span>
+                  {/* Inline once there is room; on a phone "Finance tracker"
+                      plus a labelled phase name overflowed and the name — the
+                      part that varies — was what got truncated. */}
                   {currentPhase && (
-                    <span className="truncate rounded-full bg-surface-2 px-2 py-0.5 text-[0.75rem] text-ink-2">
-                      {currentPhase.name}
-                    </span>
+                    <Link
+                      href="/settings"
+                      className="hidden min-w-0 items-baseline gap-1 truncate rounded-full bg-surface-2 px-2 py-0.5 text-[0.75rem] text-ink-2 hover:text-ink sm:flex"
+                    >
+                      <span className="shrink-0 text-ink-3">Phase</span>
+                      <span className="truncate">{currentPhase.name}</span>
+                    </Link>
                   )}
                 </div>
                 <HeaderMenu />
               </div>
+              {currentPhase && (
+                <Link
+                  href="/settings"
+                  className="mt-1.5 flex items-baseline gap-1 text-[0.75rem] text-ink-3 sm:hidden"
+                >
+                  <span>Phase</span>
+                  <span className="truncate font-medium text-ink-2">{currentPhase.name}</span>
+                </Link>
+              )}
               {/* Tabs move to the bottom bar on phones; the thumb lives there. */}
               <div className="hidden md:block">
                 <Nav />

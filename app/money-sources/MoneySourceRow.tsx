@@ -6,6 +6,7 @@ import type { MoneySource } from "@/lib/types";
 import { useGuard } from "../useGuard";
 import RowActions from "../RowActions";
 import FormError from "../FormError";
+import { inputCls } from "../ui";
 
 const KIND_LABEL: Record<MoneySource["kind"], string> = {
   manual: "Manual",
@@ -62,9 +63,9 @@ export default function MoneySourceRow({ row }: { row: MoneySource }) {
       <li className="px-4 py-3">
         <form onSubmit={onSave} className="grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_180px_auto]">
           <input type="hidden" name="id" value={row.id} />
-          <input type="date" name="date" required defaultValue={row.date} className="rounded-md border border-rule bg-surface px-2 py-1 text-sm" />
-          <input name="name" required defaultValue={row.name} className="rounded-md border border-rule bg-surface px-2 py-1 text-sm" />
-          <input name="amount" type="number" step="any" required defaultValue={row.amount} className="rounded-md border border-rule bg-surface px-2 py-1 text-sm" />
+          <input type="date" name="date" required defaultValue={row.date} className={inputCls} />
+          <input name="name" required defaultValue={row.name} className={inputCls} />
+          <input name="amount" type="number" step="any" required defaultValue={row.amount} className={inputCls} />
           <div className="flex items-center gap-2 text-xs">
             <button type="submit" disabled={pending} className="font-medium text-up disabled:opacity-60">Save</button>
             <button type="button" onClick={() => setEditing(false)} className="text-ink-3">Cancel</button>

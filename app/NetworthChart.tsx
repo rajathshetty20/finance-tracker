@@ -101,7 +101,7 @@ export default function NetworthChart({ data }: { data: Point[] }) {
 
   return (
     <section className="rounded-xl border border-rule bg-surface p-4">
-      <h2 className="text-sm font-medium text-ink-3">Net worth</h2>
+      <h2 className="text-sm font-medium">Net worth</h2>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>

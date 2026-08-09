@@ -6,7 +6,7 @@ import { xirr, formatXirr, type CashFlow } from "@/lib/xirr";
 import { seriesForInvestment } from "@/lib/investmentSeries";
 import { fmtDate, fmtINR } from "@/lib/dates";
 import { appToday } from "@/lib/demo";
-import Disclose from "../../Disclose";
+import { DiscloseRow } from "../../Disclose";
 import AddEntryForm from "./AddEntryForm";
 import CloseForm from "./CloseForm";
 import AssetClassPicker from "./AssetClassPicker";
@@ -124,13 +124,20 @@ export default async function InvestmentDetailPage({ params }: { params: Promise
       />
 
       {isOpen && (
-        <section className="flex flex-wrap gap-2">
-          <Disclose label="Add entry" tone="primary">
-            <AddEntryForm investmentId={investment.id} />
-          </Disclose>
-          <Disclose label="Close position">
-            <CloseForm investmentId={investment.id} suggestedProceeds={market} />
-          </Disclose>
+        <section>
+          <DiscloseRow
+            items={[
+              {
+                label: "Add entry",
+                tone: "primary",
+                content: <AddEntryForm investmentId={investment.id} />,
+              },
+              {
+                label: "Sell or close this position",
+                content: <CloseForm investmentId={investment.id} suggestedProceeds={market} />,
+              },
+            ]}
+          />
         </section>
       )}
 

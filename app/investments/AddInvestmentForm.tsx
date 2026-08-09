@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { createInvestment } from "./actions";
 import { useGuard } from "../useGuard";
 import { todayInAppZone } from "../todayLocal";
+import { inputCls } from "../ui";
 
 
 export default function AddInvestmentForm({ assetClasses }: { assetClasses: string[] }) {
@@ -32,13 +33,13 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           name="name"
           required
           placeholder="Name (e.g. Zerodha Nifty 50 SIP)"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <input
           name="asset_class"
           list="asset-class-options"
           placeholder="Asset class (e.g. Equity, Fixed income)"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <datalist id="asset-class-options">
           {assetClasses.map((c) => (
@@ -55,7 +56,7 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           name="date"
           required
           defaultValue={todayInAppZone()}
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <input
           name="amount"
@@ -64,7 +65,7 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           min="0.01"
           required
           placeholder="Amount invested"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <input
           name="total_value"
@@ -73,7 +74,7 @@ export default function AddInvestmentForm({ assetClasses }: { assetClasses: stri
           min="0"
           required
           placeholder="Current total value"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
       </div>
       <button

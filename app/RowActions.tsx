@@ -32,7 +32,7 @@ export default function RowActions({
           onClick={onEdit}
           aria-label={editLabel}
           title={editLabel}
-          className="-my-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink"
+          className="-my-1.5 inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink"
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
@@ -44,7 +44,7 @@ export default function RowActions({
           disabled={disabled}
           aria-label={deleteLabel}
           title={deleteLabel}
-          className="-my-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-down disabled:opacity-40"
+          className="-my-1.5 inline-flex h-11 w-11 items-center justify-center rounded-lg text-down/70 hover:bg-surface-2 hover:text-down disabled:opacity-40"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

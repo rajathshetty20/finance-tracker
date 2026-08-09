@@ -6,6 +6,7 @@ import type { CashBalance } from "@/lib/types";
 import { useGuard } from "../useGuard";
 import RowActions from "../RowActions";
 import FormError from "../FormError";
+import { inputCls } from "../ui";
 
 function daysAgo(iso: string) {
   const then = new Date(iso).getTime();
@@ -52,8 +53,8 @@ export default function CashRow({ row }: { row: CashBalance }) {
       <li className="py-2">
         <form onSubmit={onSave} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_180px_auto]">
           <input type="hidden" name="id" value={row.id} />
-          <input name="name" required defaultValue={row.name} autoFocus className="rounded-md border border-rule bg-surface px-2 py-1 text-sm" />
-          <input name="amount" type="number" step="any" required defaultValue={row.amount} className="rounded-md border border-rule bg-surface px-2 py-1 text-sm" />
+          <input name="name" required defaultValue={row.name} autoFocus className={inputCls} />
+          <input name="amount" type="number" step="any" required defaultValue={row.amount} className={inputCls} />
           <div className="flex items-center gap-2 text-xs">
             <button type="submit" disabled={pending} className="font-medium text-up disabled:opacity-60">Save</button>
             <button type="button" onClick={() => setEditing(false)} className="text-ink-3">Cancel</button>

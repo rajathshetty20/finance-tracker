@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { createDebt } from "./actions";
 import { useGuard } from "../useGuard";
 import { todayInAppZone } from "../todayLocal";
+import { inputCls } from "../ui";
 
 
 export default function AddDebtForm() {
@@ -31,7 +32,7 @@ export default function AddDebtForm() {
         name="description"
         required
         placeholder="Description (e.g. HDFC home loan)"
-        className="w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={`w-full ${inputCls}`}
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <input
@@ -39,7 +40,7 @@ export default function AddDebtForm() {
           name="start_date"
           required
           defaultValue={todayInAppZone()}
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <input
           name="principal"
@@ -48,7 +49,7 @@ export default function AddDebtForm() {
           min="0.01"
           required
           placeholder="Principal"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <input
           name="total_payable"
@@ -57,7 +58,7 @@ export default function AddDebtForm() {
           min="0.01"
           required
           placeholder="Total payable (principal + interest)"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
       </div>
       <button

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createFirstPhase } from "./actions";
 import { useGuard } from "../useGuard";
 import { todayInAppZone } from "../todayLocal";
+import { inputCls } from "../ui";
 
 
 export default function FirstPhaseForm() {
@@ -31,7 +32,7 @@ export default function FirstPhaseForm() {
           name="name"
           required
           placeholder="e.g. Job at Acme"
-          className="mt-1 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={`mt-1 w-full ${inputCls}`}
         />
       </div>
       <div>
@@ -41,7 +42,7 @@ export default function FirstPhaseForm() {
           name="start_date"
           required
           defaultValue={todayInAppZone()}
-          className="mt-1 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={`mt-1 w-full ${inputCls}`}
         />
       </div>
       <button

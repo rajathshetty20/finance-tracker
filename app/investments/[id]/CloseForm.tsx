@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { closeInvestment } from "../actions";
 import { useGuard } from "../../useGuard";
 import { todayInAppZone } from "../../todayLocal";
+import { inputCls } from "../../ui";
 
 
 export default function CloseForm({ investmentId, suggestedProceeds }: { investmentId: string; suggestedProceeds: number }) {
@@ -48,7 +49,7 @@ export default function CloseForm({ investmentId, suggestedProceeds }: { investm
           name="close_date"
           required
           defaultValue={todayInAppZone()}
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <input
           name="proceeds"
@@ -58,7 +59,7 @@ export default function CloseForm({ investmentId, suggestedProceeds }: { investm
           required
           defaultValue={suggestedProceeds}
           placeholder="Proceeds"
-          className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+          className={inputCls}
         />
         <div className="flex gap-2">
           <button

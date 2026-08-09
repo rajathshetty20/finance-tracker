@@ -110,3 +110,20 @@ export const btnPrimary =
 
 export const btnQuiet =
   "min-h-[40px] rounded-lg border border-rule px-3 py-2 text-[0.8125rem] font-semibold text-ink-2 hover:bg-surface-2 disabled:opacity-40";
+
+/**
+ * Stable colour for an asset class.
+ *
+ * Home coloured its portfolio mix by RANK — `--cat-${i}` over a list sorted by
+ * value — so Equity was blue only because it happened to be largest that day,
+ * and the hues would swap the moment fixed income overtook it. The glide-path
+ * editor meanwhile had its own hard-coded Tailwind hex list, so one class wore
+ * two different colours on two screens.
+ *
+ * Index into the class's position in the canonical (name-ordered) list, so a
+ * class keeps its colour regardless of what it is currently worth.
+ */
+export function assetClassColor(classId: string, orderedClassIds: string[]): string {
+  const i = orderedClassIds.indexOf(classId);
+  return `var(--cat-${((i < 0 ? 0 : i) % 8) + 1})`;
+}

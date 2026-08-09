@@ -129,6 +129,14 @@ export default async function HoldingsPage() {
   const emis = inferEmis(openDebts, payments);
   const emiById = new Map(emis.map((e) => [e.debtId, e]));
 
+  // The largest single holding as a share of the portfolio. Concentration is a
+  // top-three balance-sheet fact and the screen made you divide for it.
+  const holdings = open
+    .map((i) => ({ inv: i, market: marketValueOf(i, byInvId.get(i.id) ?? []) }))
+    .sort((a, b) => b.market - a.market);
+  const biggest = holdings[0] ?? null;
+  const biggestShare = biggest && investMarket > 0 ? biggest.market / investMarket : 0;
+
   // Portfolio return measured over each loan's own life, so "borrow or pay
   // down" is compared over the same window rather than against a lifetime
   // number covering years the loan did not exist.
@@ -190,12 +198,7 @@ export default async function HoldingsPage() {
           </>
         )}
 
-        {lifetimeXirr !== null && (
-          <p className="mt-3 border-t border-rule-soft pt-3 text-[0.8125rem] text-ink-2">
-            <span className="font-medium text-ink">{formatXirr(lifetimeXirr)} a year</span> across
-            every investment you have made, open and closed.
-          </p>
-        )}
+
       </section>
 
       {/* ── Investments ──────────────────────────────────────────────────── */}
@@ -214,6 +217,26 @@ export default async function HoldingsPage() {
           </span>{" "}
           · {formatXirr(unrealizedXirr)} XIRR
         </p>
+        {/* The open-position return describes what you hold NOW, so it leads;
+            the lifetime figure is the history and follows it. */}
+        <p className="mt-2 text-[0.8125rem] text-ink-2">
+          <span className="font-medium text-ink">
+            {formatXirr(unrealizedXirr)} a year on what you hold now
+          </span>
+          {lifetimeXirr !== null && (
+            <> · {formatXirr(lifetimeXirr)} across everything ever invested</>
+          )}
+          . XIRR — the annual rate that explains your actual pay-ins and their
+          timing.
+        </p>
+        {biggest && biggestShare >= 0.25 && (
+          <p className="mt-1 text-[0.8125rem] text-ink-2">
+            <span className="font-medium text-ink">
+              {Math.round(biggestShare * 100)}% sits in {biggest.inv.name}
+            </span>{" "}
+            — the largest single holding.
+          </p>
+        )}
         {realizedGain !== 0 && (
           <p className="mt-0.5 text-[0.6875rem] text-ink-3">
             + {fmtINR(realizedGain)} realized on {closed.length} closed position
@@ -260,11 +283,11 @@ export default async function HoldingsPage() {
         )}
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <Disclose label="Add investment">
+          <Disclose label="Add investment" tone="primary">
             <AddInvestmentForm assetClasses={assetClasses.map((c) => c.name)} />
           </Disclose>
           {closed.length > 0 && (
-            <Disclose label="Closed" count={closed.length}>
+            <Disclose label="Show closed" count={closed.length}>
               <ul className="divide-y divide-rule-soft">
                 {closed.map((inv) => (
                   <li key={inv.id}>
@@ -294,7 +317,10 @@ export default async function HoldingsPage() {
         </div>
         <p className="mt-0.5 text-xs text-ink-3">
           Typed in by hand. Grouped by sign — a negative balance is money owed.
-          {oldestCash && ` Oldest entry ${daysSince(oldestCash, today)}d old.`}
+          {oldestCash &&
+            (daysSince(oldestCash, today) === 0
+              ? " All updated today."
+              : ` Oldest was updated ${daysSince(oldestCash, today)} days ago.`)}
         </p>
 
         {cash.length === 0 ? (
@@ -322,7 +348,7 @@ export default async function HoldingsPage() {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Disclose label="Add cash entry">
+          <Disclose label="Add cash entry" tone="primary">
             <AddCashForm />
           </Disclose>
           {/* The audit trail belongs where the question arises — "where did
@@ -392,6 +418,21 @@ export default async function HoldingsPage() {
                       <span>{formatXirr(sinceLoan.get(d.id)!)} p.a. portfolio</span>
                     )}
                   </div>
+                  {/* The decision this row supports, said as a sentence rather
+                      than left for the reader to infer from two rates set in
+                      the smallest type on the screen. */}
+                  {implied !== null && sinceLoan.get(d.id) != null && (
+                    <p className="mt-1 text-[0.8125rem] text-ink-2">
+                      {implied > (sinceLoan.get(d.id) ?? 0) ? (
+                        <>
+                          Costs more than your portfolio has earned — paying it down
+                          beats investing, risk free.
+                        </>
+                      ) : (
+                        <>Costs less than your portfolio has earned, so far.</>
+                      )}
+                    </p>
+                  )}
                 </li>
               );
             })}
@@ -399,11 +440,11 @@ export default async function HoldingsPage() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Disclose label="Add debt">
+          <Disclose label="Add debt" tone="primary">
             <AddDebtForm />
           </Disclose>
           {closedDebts.length > 0 && (
-            <Disclose label="Closed" count={closedDebts.length}>
+            <Disclose label="Show closed" count={closedDebts.length}>
               <ul className="divide-y divide-rule-soft">
                 {closedDebts.map((d) => (
                   <li key={d.id}>

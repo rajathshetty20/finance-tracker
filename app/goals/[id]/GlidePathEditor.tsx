@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { AssetClass, GoalAllocation } from "@/lib/types";
 import { saveGlidePath, type GlideRow } from "../actions";
 import { useGuard } from "../../useGuard";
+import { assetClassColor } from "../../ui";
 
 // A glide path is a shape over time. We render it as a full-height stacked area
 // (today on the left, the goal date on the right). Only the asset classes this
@@ -15,7 +16,9 @@ type Milestone = { id: string; years: number; pct: number[] }; // pct aligned to
 type Plan = { active: string[]; milestones: Milestone[] }; // active = class ids, in assetClasses order
 type Drag = { type: "band"; id: string; b: number } | { type: "time"; id: string };
 
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7", "#84cc16", "#ec4899"];
+// The app's validated categorical tokens, not a private hex list — an asset
+// class must wear the same colour here as on Home. These also carry a dark
+// ramp; the raw Tailwind-500 hues did not.
 const H = 240;
 const PAD = { top: 28, right: 16, bottom: 30, left: 34 };
 const GRID = [0, 25, 50, 75, 100];
@@ -69,7 +72,7 @@ export default function GlidePathEditor({
   horizonYears: number;
 }) {
   const horizon = Math.max(1, horizonYears);
-  const colorOf = (id: string) => COLORS[Math.max(0, assetClasses.findIndex((c) => c.id === id)) % COLORS.length];
+  const colorOf = (id: string) => assetClassColor(id, assetClasses.map((c) => c.id));
   const nameOf = (id: string) => assetClasses.find((c) => c.id === id)?.name ?? "—";
 
   function init(): Plan {
@@ -365,7 +368,7 @@ export default function GlidePathEditor({
               return (
                 <g key={`grid-${p}`} style={{ pointerEvents: "none" }}>
                   {p > 0 && p < 100 && (
-                    <line x1={PAD.left} y1={gy} x2={w - PAD.right} y2={gy} stroke="white" strokeOpacity={0.35} strokeWidth={1} strokeDasharray="2 3" />
+                    <line x1={PAD.left} y1={gy} x2={w - PAD.right} y2={gy} stroke="var(--chart-surface)" strokeOpacity={0.45} strokeWidth={1} strokeDasharray="2 3" />
                   )}
                   <text x={PAD.left - 6} y={gy + 3} fontSize={9} fill="var(--ink-3)" textAnchor="end">{p}%</text>
                 </g>
@@ -373,12 +376,12 @@ export default function GlidePathEditor({
             })}
 
             {/* x-axis baseline */}
-            <line x1={PAD.left} y1={H - PAD.bottom} x2={w - PAD.right} y2={H - PAD.bottom} stroke="rgb(212 212 216)" strokeWidth={1} />
+            <line x1={PAD.left} y1={H - PAD.bottom} x2={w - PAD.right} y2={H - PAD.bottom} stroke="var(--chart-grid)" strokeWidth={1} />
             <text x={PAD.left} y={H - 8} fontSize={10} fill="var(--ink-3)">today</text>
             <text x={w - PAD.right} y={H - 8} fontSize={10} fill="var(--ink-3)" textAnchor="end">goal date</text>
 
             {/* per-milestone guides, handles, time control, remove */}
-            {ordered.map((m) => {
+            {ordered.map((m, mi) => {
               const x = xForYears(m.years);
               const cum = cumulative(m.pct);
               return (
@@ -390,7 +393,19 @@ export default function GlidePathEditor({
                     const yBottom = yForCum(k > 0 ? cum[k - 1] : 0);
                     if (yBottom - yTop < 16) return null;
                     return (
-                      <text key={`v-${id}`} x={x} y={(yTop + yBottom) / 2 + 3.5} fontSize={10} fontWeight={600} fill="white" textAnchor="middle" style={{ pointerEvents: "none" }}>
+                      <text
+                        key={`v-${id}`}
+                        x={x}
+                        y={(yTop + yBottom) / 2 + 3.5}
+                        fontSize={10}
+                        fontWeight={600}
+                        fill="#16191d"
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                        paintOrder="stroke"
+                        textAnchor="middle"
+                        style={{ pointerEvents: "none" }}
+                      >
                         {Math.round(m.pct[k])}%
                       </text>
                     );
@@ -401,7 +416,7 @@ export default function GlidePathEditor({
                     return (
                       <g key={b} style={{ cursor: "ns-resize" }} onPointerDown={(e) => startDrag(e, { type: "band", id: m.id, b })}>
                         <circle cx={x} cy={hy} r={11} fill="transparent" />
-                        <circle cx={x} cy={hy} r={5.5} fill="white" stroke="rgb(63 63 70)" strokeWidth={1.5} />
+                        <circle cx={x} cy={hy} r={5.5} fill="var(--chart-surface)" stroke="var(--ink)" strokeWidth={1.5} />
                       </g>
                     );
                   })}
@@ -410,11 +425,24 @@ export default function GlidePathEditor({
                     <circle cx={x} cy={H - PAD.bottom} r={11} fill="transparent" />
                     <circle cx={x} cy={H - PAD.bottom} r={4} fill="rgb(63 63 70)" />
                   </g>
-                  <text x={x} y={H - PAD.bottom + 16} fontSize={10} fill="var(--ink-3)" textAnchor="middle">{yearLabel(m.years)}</text>
+                  {/* The final milestone sits on the right edge; centring its label
+                      there clipped the trailing character against PAD.right, and it
+                      also overprinted the static "goal date" caption. */}
+                  {m.years !== 0 && (
+                    <text
+                      x={x}
+                      y={H - PAD.bottom + 16}
+                      fontSize={10}
+                      fill="var(--ink-3)"
+                      textAnchor={mi === ordered.length - 1 ? "end" : "middle"}
+                    >
+                      {yearLabel(m.years)}
+                    </text>
+                  )}
                   {/* remove */}
                   {milestones.length > 1 && (
                     <g style={{ cursor: "pointer" }} onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); removeMilestone(m.id); }}>
-                      <circle cx={x} cy={9} r={7} fill="white" stroke="rgb(212 212 216)" />
+                      <circle cx={x} cy={9} r={7} fill="var(--chart-surface)" stroke="var(--chart-grid)" />
                       <text x={x} y={12.5} fontSize={9} fill="var(--ink-3)" textAnchor="middle">✕</text>
                     </g>
                   )}
@@ -424,7 +452,7 @@ export default function GlidePathEditor({
                     const ty = yForCum(cum[b]);
                     const flip = x > PAD.left + plotW * 0.6;
                     return (
-                      <text x={flip ? x - 10 : x + 10} y={ty - 6} fontSize={10} fill="rgb(39 39 42)" textAnchor={flip ? "end" : "start"}>
+                      <text x={flip ? x - 10 : x + 10} y={ty - 6} fontSize={10} fill="var(--ink)" textAnchor={flip ? "end" : "start"}>
                         {nameOf(active[b])} {Math.round(m.pct[b])}% · {nameOf(active[b + 1])} {Math.round(m.pct[b + 1])}%
                       </text>
                     );

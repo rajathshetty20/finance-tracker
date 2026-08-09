@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateInvestmentAssetClass } from "../actions";
 import { useGuard } from "../../useGuard";
+import { inputCls } from "../../ui";
 
 export default function AssetClassPicker({
   investmentId,
@@ -51,7 +52,7 @@ export default function AssetClassPicker({
         defaultValue={current === "—" ? "" : current}
         autoFocus
         placeholder="Asset class"
-        className="rounded-md border border-rule bg-surface px-2 py-1 text-xs outline-none focus:border-ink"
+        className={inputCls}
       />
       <datalist id="asset-class-edit-options">
         {options.map((c) => (

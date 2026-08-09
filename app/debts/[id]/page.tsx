@@ -7,7 +7,7 @@ import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { formatXirr } from "@/lib/xirr";
 import { fmtDate, fmtINR } from "@/lib/dates";
 import { appToday } from "@/lib/demo";
-import Disclose from "../../Disclose";
+import { DiscloseRow } from "../../Disclose";
 import AddPaymentForm from "./AddPaymentForm";
 import CloseDebtForm from "./CloseDebtForm";
 
@@ -105,13 +105,18 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
       </section>
 
       {isOpen && (
-        <section className="flex flex-wrap gap-2">
-          <Disclose label="Add EMI" tone="primary">
-            <AddPaymentForm debtId={debt.id} />
-          </Disclose>
-          <Disclose label="Close this debt">
-            <CloseDebtForm debtId={debt.id} expectedClosureAmount={closureAmount} />
-          </Disclose>
+        <section>
+          <DiscloseRow
+            items={[
+              { label: "Add EMI", tone: "primary", content: <AddPaymentForm debtId={debt.id} /> },
+              {
+                label: "Mark this debt repaid",
+                content: (
+                  <CloseDebtForm debtId={debt.id} expectedClosureAmount={closureAmount} />
+                ),
+              },
+            ]}
+          />
         </section>
       )}
 

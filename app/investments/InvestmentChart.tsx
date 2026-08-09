@@ -109,7 +109,7 @@ export default function InvestmentChart({
   return (
     <section className="rounded-xl border border-rule bg-surface p-4">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-medium text-ink-3">{title}</h2>
+        <h2 className="text-sm font-medium">{title}</h2>
         <span
           className={`text-xs tabular-nums ${
             gain >= 0
@@ -149,7 +149,8 @@ export default function InvestmentChart({
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
-              domain={["auto", "auto"]}
+              domain={[0, (max: number) => max * 1.08]}
+              allowDecimals={false}
             />
             <Tooltip content={<ChartTooltip />} />
             <Legend
@@ -177,7 +178,7 @@ export default function InvestmentChart({
               dataKey="book"
               isAnimationActive={false}
               name="Invested"
-              stroke="var(--ink-3)"
+              stroke="var(--cat-2)"
               strokeWidth={2}
               strokeDasharray="4 4"
               dot={singlePoint ? { r: 4 } : false}

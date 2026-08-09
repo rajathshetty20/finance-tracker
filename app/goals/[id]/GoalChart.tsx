@@ -5,7 +5,6 @@ import {
   CartesianGrid,
   ComposedChart,
   Legend,
-  Line,
   ReferenceDot,
   ResponsiveContainer,
   Tooltip,
@@ -50,7 +49,6 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(planned)}</span>
       </div>
       <div>
-        <span style={{ color: "var(--ink-3)" }}>Target </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(target)}</span>
       </div>
     </div>
@@ -73,7 +71,7 @@ export default function GoalChart({
 
   return (
     <section className="rounded-xl border border-rule bg-surface p-4">
-      <h2 className="text-sm font-medium text-ink-3">What it must hold to reach the target</h2>
+      <h2 className="text-sm font-medium">What it must hold to reach the target</h2>
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -83,7 +81,7 @@ export default function GoalChart({
                 <stop offset="100%" stopColor="var(--goal)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis
               dataKey="ts"
               type="number"
@@ -104,12 +102,12 @@ export default function GoalChart({
               axisLine={{ stroke: "var(--chart-grid)" }}
               tickLine={{ stroke: "var(--chart-grid)" }}
               width={70}
-              domain={[0, "auto"]}
+              domain={[0, (max: number) => max * 1.08]}
             />
             <Tooltip content={<ChartTooltip />} />
             <Legend verticalAlign="top" height={24} iconType="plainline" wrapperStyle={{ fontSize: 11, color: "var(--ink-3)" }} />
-            <Area isAnimationActive={false} type="monotone" dataKey="planned" name="Needed" stroke="var(--goal)" strokeWidth={2.5} fill="url(#plannedGradient)" dot={false} />
-            <Line isAnimationActive={false} type="monotone" dataKey="target" name="Target" stroke="var(--ink-3)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+            <Area isAnimationActive={false} type="monotone" dataKey="planned" name="Needed" stroke="var(--goal)" strokeWidth={2.5} fill="none" dot={false} />
+            
             <ReferenceDot
               x={clampedTs}
               y={attributed}

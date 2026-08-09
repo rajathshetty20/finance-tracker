@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { createCategory } from "./actions";
 import { useGuard } from "../useGuard";
+import { inputCls } from "../ui";
 
 export default function NewCategoryForm({ kind }: { kind: "expense" | "income" }) {
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export default function NewCategoryForm({ kind }: { kind: "expense" | "income" }
         name="name"
         required
         placeholder={kind === "expense" ? "e.g. Food" : "e.g. Salary"}
-        className="flex-1 rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={`flex-1 ${inputCls}`}
       />
       <button
         type="submit"

@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { createManualMoneySource } from "./actions";
 import { useGuard } from "../useGuard";
 import { todayInAppZone } from "../todayLocal";
+import { inputCls } from "../ui";
 
 
 export default function AddMoneySourceForm() {
@@ -32,13 +33,13 @@ export default function AddMoneySourceForm() {
         name="date"
         required
         defaultValue={todayInAppZone()}
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <input
         name="name"
         required
         placeholder="e.g. Gift from parents, Fixed deposit"
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <input
         name="amount"
@@ -47,7 +48,7 @@ export default function AddMoneySourceForm() {
         step="any"
         required
         placeholder="Amount (negative ok)"
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <button
         type="submit"

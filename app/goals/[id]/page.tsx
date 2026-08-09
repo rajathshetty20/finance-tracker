@@ -186,7 +186,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
       {rows.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-ink-3">By asset class</h2>
+          <h2 className="mb-2 text-sm font-medium">By asset class</h2>
           {/* A five-column table cannot be read at 402px — "Shortfall" was
               clipped mid-word and the last column was off-screen. Each class
               gets a block instead, with the gap called out only when there is
@@ -225,7 +225,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <section className="rounded-xl border border-rule bg-surface p-4">
-        <h2 className="mb-1 text-sm font-medium text-ink-3">Glide path</h2>
+        <h2 className="mb-1 text-sm font-medium">Glide path</h2>
         <p className="mb-3 text-xs text-ink-3">
           Target allocation at each milestone (years before the goal date). Each milestone must sum
           to 100%. Between milestones the allocation glides linearly.

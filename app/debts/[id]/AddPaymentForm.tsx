@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { addDebtPayment } from "../actions";
 import { useGuard } from "../../useGuard";
 import { todayInAppZone } from "../../todayLocal";
+import { inputCls } from "../../ui";
 
 
 export default function AddPaymentForm({ debtId }: { debtId: string }) {
@@ -33,7 +34,7 @@ export default function AddPaymentForm({ debtId }: { debtId: string }) {
         name="date"
         required
         defaultValue={todayInAppZone()}
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <input
         name="amount"
@@ -42,12 +43,12 @@ export default function AddPaymentForm({ debtId }: { debtId: string }) {
         min="0.01"
         required
         placeholder="EMI amount"
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <input
         name="note"
         placeholder="Note (optional)"
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <button
         type="submit"

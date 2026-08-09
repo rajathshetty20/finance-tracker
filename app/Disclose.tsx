@@ -48,3 +48,48 @@ export default function Disclose({
     </div>
   );
 }
+
+/**
+ * A row of disclosures where only one is open at a time, and the open panel
+ * renders BELOW the whole row.
+ *
+ * Two `Disclose`s side by side in a flex-wrap sat fine until one was opened:
+ * the opened item grew, the row wrapped, and its neighbour jumped from beside
+ * the button to underneath it. The buttons here never move.
+ */
+export function DiscloseRow({
+  items,
+}: {
+  items: { label: string; tone?: "quiet" | "primary"; content: React.ReactNode }[];
+}) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, i) => {
+          const open = openIndex === i;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => setOpenIndex(open ? null : i)}
+              aria-expanded={open}
+              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 py-2 text-[0.8125rem] font-semibold ${
+                item.tone === "primary"
+                  ? "bg-ink text-ground hover:opacity-90"
+                  : "border border-rule text-ink-2 hover:bg-surface-2"
+              }`}
+            >
+              {item.label}
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </button>
+          );
+        })}
+      </div>
+      {openIndex !== null && <div className="mt-3">{items[openIndex].content}</div>}
+    </div>
+  );
+}

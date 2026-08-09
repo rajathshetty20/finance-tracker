@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { MoneySource } from "@/lib/types";
 import AddMoneySourceForm from "./AddMoneySourceForm";
@@ -18,9 +17,6 @@ export default async function MoneySourcesPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <Link href="/" className="text-xs text-ink-3 hover:text-ink">
-          ← Home
-        </Link>
         <h1 className="text-2xl font-semibold">Money sources</h1>
         <p className="text-sm text-ink-3">
           Where capital came from, other than earning it: opening balances, gifts, phase rollovers,

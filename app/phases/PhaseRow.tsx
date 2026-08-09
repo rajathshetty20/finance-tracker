@@ -5,6 +5,7 @@ import { renamePhase, editFirstPhaseStartDate } from "./actions";
 import type { Phase } from "@/lib/types";
 import { fmtINR, fmtMonthYear } from "@/lib/dates";
 import { useGuard } from "../useGuard";
+import { inputCls } from "../ui";
 
 export type PhaseStats = {
   avgIncome: number;
@@ -67,7 +68,7 @@ export default function PhaseRow({
                 defaultValue={phase.name}
                 required
                 autoFocus
-                className="flex-1 rounded-md border border-rule bg-surface px-2 py-1 text-sm outline-none focus:border-ink"
+                className={`flex-1 ${inputCls}`}
               />
               <button type="submit" disabled={pending} className="text-xs font-medium text-up disabled:opacity-60">
                 Save
@@ -99,7 +100,7 @@ export default function PhaseRow({
                   defaultValue={phase.start_date}
                   required
                   autoFocus
-                  className="rounded-md border border-rule bg-surface px-2 py-1 text-xs outline-none focus:border-ink"
+                  className={inputCls}
                 />
                 <button type="submit" disabled={pending} className="text-xs font-medium text-up disabled:opacity-60">
                   Save

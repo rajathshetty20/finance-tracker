@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { createCash } from "./actions";
 import { useGuard } from "../useGuard";
+import { inputCls } from "../ui";
 
 export default function AddCashForm() {
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export default function AddCashForm() {
         name="name"
         required
         placeholder="e.g. HDFC Savings"
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <input
         name="amount"
@@ -38,7 +39,7 @@ export default function AddCashForm() {
         step="any"
         required
         placeholder="Amount (negative ok)"
-        className="rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink"
+        className={inputCls}
       />
       <button
         type="submit"

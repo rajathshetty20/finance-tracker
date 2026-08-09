@@ -19,6 +19,7 @@ import {
 import { appToday } from "@/lib/demo";
 import { currentMonthStartISO, fmtINR } from "@/lib/dates";
 import { inWindow, parseRange, rangeDescription, rangeWindow } from "@/lib/range";
+import Disclose from "../Disclose";
 import LedgerControls from "./LedgerControls";
 import EntryRow from "./EntryRow";
 import AddEntry from "./AddEntry";
@@ -123,9 +124,12 @@ export default async function CashflowPage({
   const currentTotal = byCategory.reduce((a, r) => a + r.current, 0);
 
   // ── The ledger ───────────────────────────────────────────────────────────
+  // Scoped to the current phase, because everything above it is: showing a
+  // previous job's rows under an average computed from this one invited a
+  // comparison that is not being made. Earlier phases get their own section.
   const rows = ledger === "expenses" ? allExpenses : allIncomes;
   const win = rangeWindow(range, today);
-  const filtered = rows.filter((e) => {
+  const matches = (e: EntryWithJoins) => {
     if (!inWindow(e.date, win)) return false;
     if (catFilter && e.category_id !== catFilter) return false;
     if (q) {
@@ -133,12 +137,15 @@ export default async function CashflowPage({
       if (!hay.includes(q)) return false;
     }
     return true;
-  });
+  };
+  const filtered = rows.filter((e) => e.phase_id === currentPhase.id && matches(e));
+  const earlier = rows.filter((e) => e.phase_id !== currentPhase.id && matches(e));
+  const earlierByPhase = phases
+    .filter((p) => p.id !== currentPhase.id)
+    .map((p) => ({ phase: p, rows: earlier.filter((e) => e.phase_id === p.id) }))
+    .filter((g) => g.rows.length > 0);
   const filteredTotal = filtered.reduce((a, e) => a + Number(e.amount), 0);
   const shown = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
-  const groups = phases
-    .map((p) => ({ phase: p, rows: shown.filter((e) => e.phase_id === p.id) }))
-    .filter((g) => g.rows.length > 0);
 
   const ledgerCategories = categories.filter(
     (c) => c.kind === (ledger === "expenses" ? "expense" : "income"),
@@ -189,8 +196,9 @@ export default async function CashflowPage({
             <span className="text-[0.6875rem] text-ink-3">{currentPhase.name}</span>
           </div>
 
-          <div className="mt-3 grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">
+          <div className="mt-3 grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-3 text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">
             <span>Category</span>
+            <span className="w-14 text-right">Share</span>
             <span className="w-20 text-right">Avg / mo</span>
             <span className="w-24 text-right">{fmtMonthShort(thisMonth)}</span>
           </div>
@@ -198,15 +206,28 @@ export default async function CashflowPage({
             {byCategory.map((r) => (
               <li
                 key={r.categoryId}
-                className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 py-1.5 text-[0.8125rem]"
+                className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-3 py-1.5 text-[0.8125rem]"
               >
-                <Link
-                  href={`/cashflow?${qs({ cat: r.categoryId })}`}
-                  scroll={false}
-                  className="truncate hover:underline"
-                >
-                  {r.name}
-                </Link>
+                <span className="min-w-0">
+                  <Link
+                    href={`/cashflow?${qs({ cat: r.categoryId })}`}
+                    scroll={false}
+                    className="block truncate hover:underline"
+                  >
+                    {r.name}
+                  </Link>
+                  {/* Rent and Subscriptions differ by 38x; a column of digits
+                      makes you count characters to see it. */}
+                  <span className="mt-1 block h-1 overflow-hidden rounded-full bg-surface-2">
+                    <span
+                      className="block h-full rounded-full bg-ink-3/50"
+                      style={{ width: `${avgTotal > 0 ? (r.avg / avgTotal) * 100 : 0}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="w-14 text-right tabular-nums text-ink-3">
+                  {avgTotal > 0 ? `${Math.round((r.avg / avgTotal) * 100)}%` : "—"}
+                </span>
                 <span className="w-20 text-right tabular-nums text-ink-2">{fmtINR(r.avg)}</span>
                 {/* The comparison is spelled out rather than encoded as a
                     colour. A caption reading "amber where this month is
@@ -228,15 +249,16 @@ export default async function CashflowPage({
                 </span>
               </li>
             ))}
-            <li className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 border-t border-rule pt-1.5 text-[0.8125rem] font-semibold">
+            <li className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-3 border-t border-rule pt-1.5 text-[0.8125rem] font-semibold">
               <span>Total</span>
+              <span className="w-14 text-right tabular-nums text-ink-3">100%</span>
               <span className="w-20 text-right tabular-nums">{fmtINR(avgTotal)}</span>
               <span className="w-24 text-right tabular-nums">{fmtINR(currentTotal)}</span>
             </li>
           </ul>
           <p className="mt-2 text-[0.6875rem] text-ink-3">
             Average over {bases.completedMonths} completed month
-            {bases.completedMonths === 1 ? "" : "s"}.
+            {bases.completedMonths === 1 ? "" : "s"}; — means nothing logged yet this month.
           </p>
         </section>
       )}
@@ -283,7 +305,7 @@ export default async function CashflowPage({
         />
 
         <p className="text-[0.8125rem] text-ink-3">
-          {filtered.length} entr{filtered.length === 1 ? "y" : "ies"} ·{" "}
+          {filtered.length} entr{filtered.length === 1 ? "y" : "ies"} in {currentPhase.name} ·{" "}
           {rangeDescription(range, today)}
           {catFilter && ` · ${categories.find((c) => c.id === catFilter)?.name ?? "category"}`}
           {q && ` · matching “${q}”`} ·{" "}
@@ -295,31 +317,17 @@ export default async function CashflowPage({
             Nothing matches these filters.
           </p>
         ) : (
-          groups.map(({ phase, rows: grp }) => (
-            <section key={phase.id}>
-              <h3 className="mb-1.5 flex items-center gap-2 text-[0.8125rem] font-medium text-ink-3">
-                {phase.name}
-                {phase.end_date === null ? (
-                  <span className="rounded-full bg-up-soft px-2 py-0.5 text-[10px] font-medium text-up">
-                    current
-                  </span>
-                ) : (
-                  <span className="text-[0.6875rem] font-normal">closed — entries locked</span>
-                )}
-              </h3>
-              <ul className="divide-y divide-rule-soft overflow-hidden rounded-xl border border-rule bg-surface">
-                {grp.map((e) => (
-                  <EntryRow
-                    key={e.id}
-                    entry={e}
-                    categories={ledgerCategories}
-                    phaseStart={currentPhase.start_date}
-                    kind={ledger}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))
+          <ul className="divide-y divide-rule-soft overflow-hidden rounded-xl border border-rule bg-surface">
+            {shown.map((e) => (
+              <EntryRow
+                key={e.id}
+                entry={e}
+                categories={ledgerCategories}
+                phaseStart={currentPhase.start_date}
+                kind={ledger}
+              />
+            ))}
+          </ul>
         )}
 
         {!showAll && filtered.length > PAGE_SIZE && (
@@ -330,6 +338,42 @@ export default async function CashflowPage({
           >
             Show all {filtered.length}
           </Link>
+        )}
+
+        {earlierByPhase.length > 0 && (
+          <Disclose
+            label="Earlier phases"
+            count={earlier.length}
+          >
+            <div className="space-y-4">
+              {earlierByPhase.map(({ phase, rows: grp }) => (
+                <section key={phase.id}>
+                  <h3 className="mb-1.5 flex items-baseline gap-2 text-[0.8125rem] font-medium text-ink-3">
+                    {phase.name}
+                    <span className="text-[0.6875rem] font-normal">
+                      closed — entries locked
+                    </span>
+                  </h3>
+                  <ul className="divide-y divide-rule-soft overflow-hidden rounded-xl border border-rule bg-surface">
+                    {grp.slice(0, PAGE_SIZE).map((e) => (
+                      <EntryRow
+                        key={e.id}
+                        entry={e}
+                        categories={ledgerCategories}
+                        phaseStart={currentPhase.start_date}
+                        kind={ledger}
+                      />
+                    ))}
+                  </ul>
+                  {grp.length > PAGE_SIZE && (
+                    <p className="mt-1 text-[0.6875rem] text-ink-3">
+                      Showing {PAGE_SIZE} of {grp.length}.
+                    </p>
+                  )}
+                </section>
+              ))}
+            </div>
+          </Disclose>
         )}
       </section>
 

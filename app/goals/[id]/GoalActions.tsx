@@ -5,9 +5,7 @@ import { useState, useTransition } from "react";
 import type { Goal } from "@/lib/types";
 import { updateGoal, setGoalStatus, deleteGoal } from "../actions";
 import { useGuard } from "../../useGuard";
-
-const inputCls =
-  "rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink";
+import { inputCls } from "../../ui";
 
 export default function GoalActions({ goal }: { goal: Goal }) {
   const router = useRouter();
@@ -59,7 +57,7 @@ export default function GoalActions({ goal }: { goal: Goal }) {
 
   return (
     <section className="rounded-xl border border-rule bg-surface p-4">
-      <h2 className="mb-3 text-sm font-medium text-ink-3">Manage goal</h2>
+      <h2 className="mb-3 text-sm font-medium">Manage goal</h2>
 
       {editing ? (
         <form onSubmit={onSave} className="space-y-3">

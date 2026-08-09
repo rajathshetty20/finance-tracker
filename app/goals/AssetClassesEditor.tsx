@@ -4,9 +4,9 @@ import { useRef, useState, useTransition } from "react";
 import type { AssetClass } from "@/lib/types";
 import { createAssetClass, updateAssetClass, deleteAssetClass } from "./actions";
 import { useGuard } from "../useGuard";
-
-const inputCls =
-  "rounded-md border border-rule bg-surface px-2 py-1 text-sm outline-none focus:border-ink";
+import { inputCls } from "../ui";
+import RowActions from "../RowActions";
+import FormError from "../FormError";
 
 export default function AssetClassesEditor({ assetClasses }: { assetClasses: AssetClass[] }) {
   const [error, setError] = useState<string | null>(null);
@@ -114,18 +114,13 @@ function AssetClassRow({ assetClass }: { assetClass: AssetClass }) {
       ) : (
         <>
           <span className="text-sm">{assetClass.name}</span>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-ink-3 tabular-nums">{Number(assetClass.expected_return)}% p.a.</span>
-            <button onClick={() => setEditing(true)} className="text-ink-3 hover:text-ink">
-              edit
-            </button>
-            <button onClick={onDelete} disabled={pending} className="text-down hover:text-down disabled:opacity-60">
-              delete
-            </button>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="tabular-nums text-ink-3">{Number(assetClass.expected_return)}% p.a.</span>
+            <RowActions onEdit={() => setEditing(true)} onDelete={onDelete} disabled={pending} />
           </div>
         </>
       )}
-      {error && <p className="ml-3 text-xs text-down">{error}</p>}
+      <FormError>{error}</FormError>
     </li>
   );
 }

@@ -19,6 +19,7 @@ import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass } from "@/li
 import { cashflowBases } from "@/lib/money";
 import { appToday } from "@/lib/demo";
 import { currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
+import { assetClassColor } from "./ui";
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
 
@@ -208,14 +209,20 @@ export default async function DashboardPage() {
   const goalsRequired = planSummary(analyses).requiredMonthly;
   // The plan is funded by a standing SIP out of salary, not out of a trailing
   // average that is dragged down by an older pay level.
+  // Round both operands BEFORE subtracting, as /plan does. Subtracting raw
+  // floats and rounding the result made this card disagree with the two tiles
+  // printed directly above it, and with /plan, by ₹1.
   const headroom =
-    monthlyInvestable !== null && analyses.length > 0 ? monthlyInvestable - goalsRequired : null;
+    monthlyInvestable !== null && analyses.length > 0
+      ? Math.round(monthlyInvestable) - Math.round(goalsRequired)
+      : null;
 
   // Portfolio mix, ranked. Replaces the nested two-ring donut, which needed a
   // legend repeating every percentage in text to be readable at all.
   const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
+  const classOrder = assetClasses.map((c) => c.id);
   const mix = [...pool.entries()]
-    .map(([id, value]) => ({ name: classNameById.get(id) ?? "—", value }))
+    .map(([id, value]) => ({ id, name: classNameById.get(id) ?? "—", value }))
     .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value);
   const mixTotal = mix.reduce((a, r) => a + r.value, 0);
@@ -332,7 +339,7 @@ export default async function DashboardPage() {
 
       {/* One month, subtracted in order. */}
       <section className="rounded-xl border border-rule bg-surface p-4">
-        <h2 className="text-sm font-medium text-ink-3">
+        <h2 className="text-sm font-medium">
           Where a month goes
           {!showAverages && <span className="ml-2 text-xs">(needs a completed month)</span>}
         </h2>
@@ -373,7 +380,7 @@ export default async function DashboardPage() {
           has never actually performed. */}
       {headroom !== null && monthlyInvestable !== null && (
         <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink-3">Can you fund the plan?</h2>
+          <h2 className="text-sm font-medium">Can you fund the plan?</h2>
           <p className="text-xs text-ink-3">Against salary, not the average above.</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Cell label="Goals need" value={fmt(goalsRequired)} />
@@ -404,22 +411,37 @@ export default async function DashboardPage() {
 
       {mix.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink-3">Portfolio mix</h2>
-          <div className="mt-3 space-y-2.5">
-            {mix.map((r, i) => (
-              <div key={r.name} className="grid grid-cols-[1fr_auto] gap-x-2 text-[0.8125rem]">
-                <span className="truncate">{r.name}</span>
-                <span className="tabular-nums text-ink-2">
+          <h2 className="text-sm font-medium">Portfolio mix</h2>
+          {/* Part-to-whole is a stacked bar, not one bar per class: four bars
+              each scaled to its own share made the reader reconstruct the whole
+              from four percentages. A pie was the other candidate and loses —
+              it cannot separate the 5.4% and 3.7% slices, and these names are
+              too long to sit inside one.
+              The 2px gaps and the direct labels below are also what makes the
+              amber/green adjacency legal: that pair validates at ΔE 7.9 under
+              protanopia, which is only permitted with secondary encoding. */}
+          <div className="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+            {mix.map((r) => (
+              <span
+                key={r.id}
+                style={{
+                  width: `${(r.value / mixTotal) * 100}%`,
+                  background: assetClassColor(r.id, classOrder),
+                }}
+              />
+            ))}
+          </div>
+          <div className="mt-2.5 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+            {mix.map((r) => (
+              <div key={r.id} className="flex items-baseline gap-1.5 text-[0.8125rem]">
+                <i
+                  className="h-2 w-2 shrink-0 -translate-y-px rounded-sm"
+                  style={{ background: assetClassColor(r.id, classOrder) }}
+                />
+                <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                <span className="tabular-nums">{fmt(r.value)}</span>
+                <span className="w-11 text-right tabular-nums text-ink-3">
                   {((r.value / mixTotal) * 100).toFixed(1)}%
-                </span>
-                <span className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{
-                      width: `${(r.value / mixTotal) * 100}%`,
-                      background: `var(--cat-${(i % 8) + 1})`,
-                    }}
-                  />
                 </span>
               </div>
             ))}

@@ -6,6 +6,7 @@ import type { Category } from "@/lib/types";
 import { useGuard } from "../useGuard";
 import RowActions from "../RowActions";
 import FormError from "../FormError";
+import { inputCls } from "../ui";
 
 export default function CategoryRow({
   category,
@@ -61,7 +62,7 @@ export default function CategoryRow({
             defaultValue={category.name}
             required
             autoFocus
-            className="flex-1 rounded-md border border-rule bg-surface px-2 py-1 text-sm outline-none focus:border-ink"
+            className={`flex-1 ${inputCls}`}
           />
           <button type="submit" disabled={pending} className="text-xs font-medium text-up disabled:opacity-60">
             Save

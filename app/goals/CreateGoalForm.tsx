@@ -3,9 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { createGoal } from "./actions";
 import { useGuard } from "../useGuard";
-
-const inputCls =
-  "rounded-md border border-rule bg-surface px-3 py-2 text-sm outline-none focus:border-ink";
+import { inputCls } from "../ui";
 
 export default function CreateGoalForm() {
   const [error, setError] = useState<string | null>(null);
