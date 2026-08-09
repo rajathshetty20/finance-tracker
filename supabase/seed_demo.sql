@@ -431,26 +431,6 @@ end $$;
 
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Reseed: when the demo grows stale, delete the demo user's rows (deletion
--- order respects the restrict FKs; running as postgres bypasses the demo's
--- read-only RLS) and run the seed above again.
---
--- do $$
--- declare
---   u uuid;
--- begin
---   select id into u from auth.users where email = 'demo@example.com';
---   delete from public.goal_allocations   where user_id = u;
---   delete from public.goals              where user_id = u;
---   delete from public.money_sources      where user_id = u;
---   delete from public.investment_entries where user_id = u;
---   delete from public.investments        where user_id = u;
---   delete from public.asset_classes      where user_id = u;
---   delete from public.debt_payments      where user_id = u;
---   delete from public.debts              where user_id = u;
---   delete from public.expenses           where user_id = u;
---   delete from public.incomes            where user_id = u;
---   delete from public.cash_balances      where user_id = u;
---   delete from public.categories         where user_id = u;
---   delete from public.phases             where user_id = u;
--- end $$;
+-- Reseed: when the demo grows stale, run supabase/reseed_demo.sql to clear the
+-- demo user's rows, then run this file again. That script is the only place
+-- the deletion lives, so the order and the not-found guard stay in one copy.
