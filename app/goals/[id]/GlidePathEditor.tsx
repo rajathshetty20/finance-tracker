@@ -5,6 +5,15 @@ import type { AssetClass, GoalAllocation } from "@/lib/types";
 import { saveGlidePath, type GlideRow } from "../actions";
 import { useGuard } from "../../useGuard";
 import { assetClassColor, btnPrimary, btnQuiet } from "../../ui";
+import {
+  CURVES,
+  blendedReturn,
+  dragBoundary,
+  rebalance,
+  reshape,
+  toHundred,
+  type GlideCurve,
+} from "@/lib/glide";
 
 // A glide path is a shape over time. We render it as a full-height stacked area
 // (today on the left, the goal date on the right). Only the asset classes this
@@ -27,17 +36,6 @@ let _seq = 0;
 const nextId = () => `m${_seq++}`;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-/** Round weights to integer percentages summing to exactly 100 (largest-remainder). */
-function toHundred(weights: number[]): number[] {
-  const sum = weights.reduce((s, w) => s + w, 0);
-  if (sum <= 0) return weights.map(() => 0);
-  const exact = weights.map((w) => (w / sum) * 100);
-  const base = exact.map(Math.floor);
-  const left = 100 - base.reduce((s, b) => s + b, 0);
-  const order = exact.map((e, i) => ({ i, rem: e - Math.floor(e) })).sort((a, b) => b.rem - a.rem);
-  for (let j = 0; j < left && j < order.length; j++) base[order[j].i]++;
-  return base;
-}
 
 /** Nearest month to `target` not already used by another milestone (within [0, maxM]). */
 function nearestFreeMonth(target: number, used: Set<number>, maxM: number): number | null {
@@ -120,7 +118,34 @@ export default function GlidePathEditor({
     return { active, milestones };
   }
 
-  const [plan, setPlan] = useState<Plan>(init);
+  const [plan, _setPlan] = useState<Plan>(init);
+  const [past, setPast] = useState<Plan[]>([]);
+  // What is stored, so "revert" means the saved plan rather than page-load state.
+  // Seeded from `plan`, NOT by calling init() a second time: init is a lazy
+  // initializer that mints fresh milestone ids each call, so a second
+  // invocation produced an identical-looking plan that never compared equal.
+  const [saved_, setSaved_] = useState<Plan>(() => plan);
+
+  /** Every mutation goes through here, so undo sees all of them. */
+  const setPlan = (fn: (p: Plan) => Plan) =>
+    _setPlan((p) => {
+      const next = fn(p);
+      if (next !== p) setPast((h) => [...h.slice(-49), p]);
+      return next;
+    });
+
+  const undo = () => {
+    setPast((h) => {
+      if (h.length === 0) return h;
+      _setPlan(h[h.length - 1]);
+      return h.slice(0, -1);
+    });
+  };
+
+  const revert = () => {
+    setPast((h) => [...h.slice(-49), plan]);
+    _setPlan(saved_);
+  };
   const { active, milestones } = plan;
   const na = active.length;
 
@@ -163,30 +188,26 @@ export default function GlidePathEditor({
    * remaining classes absorb the difference in proportion to what they already
    * hold, so the column still totals 100 the way a drag leaves it.
    */
-  const setPct = (msId: string, idx: number, raw: number) => {
-    const target = clamp(Math.round(raw), 0, 100);
-    setMs((ms) =>
-      ms.map((m) => {
-        if (m.id !== msId) return m;
-        const rest = 100 - target;
-        const others = m.pct.filter((_, i) => i !== idx);
-        const otherSum = others.reduce((a, b) => a + b, 0);
-        const next = m.pct.map((v, i) => {
-          if (i === idx) return target;
-          if (otherSum > 0) return (v / otherSum) * rest;
-          return rest / Math.max(1, others.length);
-        });
-        return { ...m, pct: toHundred(next) };
-      }),
-    );
-  };
+  const setPct = (msId: string, idx: number, raw: number) =>
+    setMs((ms) => ms.map((m) => (m.id === msId ? { ...m, pct: rebalance(m.pct, idx, raw) } : m)));
 
   /** Blended expected return implied by a milestone's mix. */
   const blendedAt = (m: Milestone) =>
-    m.pct.reduce((acc, pct, i) => {
-      const cls = assetClasses.find((c) => c.id === active[i]);
-      return acc + (pct / 100) * Number(cls?.expected_return ?? 0);
-    }, 0);
+    blendedReturn(
+      m.pct,
+      active.map((id) => Number(assetClasses.find((c) => c.id === id)?.expected_return ?? 0)),
+    );
+
+  /**
+   * Re-space the milestones between the two ends. Only the shape changes; the
+   * first and last allocations are the owner's decisions and stay put.
+   */
+  const applyCurve = (curve: GlideCurve) =>
+    setPlan((p) => {
+      const ordered = [...p.milestones].sort((a, b) => b.years - a.years);
+      const shaped = reshape(ordered, curve);
+      return { ...p, milestones: shaped };
+    });
   function touch() {
     setSaved(false);
     setError(null);
@@ -226,17 +247,7 @@ export default function GlidePathEditor({
     if (drag.type === "band") {
       const cum = clamp((1 - (e.clientY - rect.top - PAD.top) / plotH) * 100, 0, 100);
       setMs((ms) =>
-        ms.map((m) => {
-          if (m.id !== drag.id) return m;
-          const b = drag.b;
-          const lower = m.pct.slice(0, b).reduce((s, v) => s + v, 0);
-          const upper = lower + m.pct[b] + m.pct[b + 1];
-          const nc = clamp(cum, lower, upper);
-          const pct = [...m.pct];
-          pct[b] = nc - lower;
-          pct[b + 1] = upper - nc;
-          return { ...m, pct };
-        }),
+        ms.map((m) => (m.id === drag.id ? { ...m, pct: dragBoundary(m.pct, drag.b, cum) } : m)),
       );
     } else {
       const targetM = Math.round(yearsForX(e.clientX) * 12);
@@ -320,7 +331,12 @@ export default function GlidePathEditor({
       guard(async () => {
       const res = await saveGlidePath(goalId, rows);
       if (res?.error) setError(res.error);
-      else setSaved(true);
+      else {
+        setSaved(true);
+        // "Revert" now means back to this, not back to page load.
+        setSaved_(plan);
+        setPast([]);
+      }
     }),
     );
   }
@@ -539,12 +555,48 @@ export default function GlidePathEditor({
         </div>
       )}
 
+      {ordered.length > 2 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[0.6875rem] uppercase tracking-wide text-ink-3">Shape</span>
+          {CURVES.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => applyCurve(c.key)}
+              title={c.hint}
+              className="rounded-lg border border-rule px-2.5 py-1.5 text-[0.75rem] text-ink-2 hover:bg-surface-2"
+            >
+              {c.label}
+            </button>
+          ))}
+          <span className="text-[0.6875rem] text-ink-3">
+            moves the milestones between your two ends
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={onSave} disabled={pending} className={btnPrimary}>
           {pending ? "Saving..." : "Save plan"}
         </button>
         <button type="button" onClick={addMilestone} className={btnQuiet}>
           + Add milestone
+        </button>
+        <button
+          type="button"
+          onClick={undo}
+          disabled={past.length === 0}
+          className={`${btnQuiet} disabled:opacity-40`}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          onClick={revert}
+          disabled={JSON.stringify(plan) === JSON.stringify(saved_)}
+          className="text-[0.8125rem] text-ink-3 underline disabled:opacity-40 disabled:no-underline"
+        >
+          Revert to saved
         </button>
         {saved && <span className="text-xs text-up">Saved.</span>}
         {error && <span className="text-sm text-down">{error}</span>}

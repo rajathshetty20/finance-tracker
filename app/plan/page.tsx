@@ -380,9 +380,8 @@ function GoalCard({
       </div>
 
       <div className="mt-3">
-        <div className="flex items-baseline justify-between text-[0.6875rem] text-ink-3">
-          <span>self-funded</span>
-          <span className="tabular-nums">{Math.round(a.coverage * 100)}%</span>
+        <div className="flex justify-end text-[0.6875rem] tabular-nums text-ink-3">
+          {Math.round(a.coverage * 100)}%
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
           <div className={`h-full rounded-full ${barTone}`} style={{ width: `${coveragePct}%` }} />
