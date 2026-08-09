@@ -129,14 +129,6 @@ export default async function HoldingsPage() {
   const emis = inferEmis(openDebts, payments);
   const emiById = new Map(emis.map((e) => [e.debtId, e]));
 
-  // The largest single holding as a share of the portfolio. Concentration is a
-  // top-three balance-sheet fact and the screen made you divide for it.
-  const holdings = open
-    .map((i) => ({ inv: i, market: marketValueOf(i, byInvId.get(i.id) ?? []) }))
-    .sort((a, b) => b.market - a.market);
-  const biggest = holdings[0] ?? null;
-  const biggestShare = biggest && investMarket > 0 ? biggest.market / investMarket : 0;
-
   // Portfolio return measured over each loan's own life, so "borrow or pay
   // down" is compared over the same window rather than against a lifetime
   // number covering years the loan did not exist.
@@ -229,14 +221,6 @@ export default async function HoldingsPage() {
           <Figure label="Overall XIRR" value={formatXirr(lifetimeXirr)} />
         </div>
 
-        {biggest && biggestShare >= 0.25 && (
-          <p className="mt-3 text-[0.8125rem] text-ink-2">
-            <span className="font-medium text-ink">
-              {Math.round(biggestShare * 100)}% sits in {biggest.inv.name}
-            </span>{" "}
-            — the largest single holding.
-          </p>
-        )}
 
         {open.length > 0 && (
           <ul className="mt-3 divide-y divide-rule-soft">

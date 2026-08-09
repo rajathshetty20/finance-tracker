@@ -1,7 +1,7 @@
 # Finance Tracker
 
 **[▶ Try the live demo](https://finance-tracker-henna-six.vercel.app/demo)** — three years of a fictional ledger, no sign-up.
-&nbsp;·&nbsp; [Live app](https://finance-tracker-henna-six.vercel.app/) (magic-link sign-in)
+&nbsp;·&nbsp; [Live app](https://finance-tracker-henna-six.vercel.app/) (passwordless sign-in)
 
 A self-hosted personal finance dashboard built around one idea: **your net worth should be explainable**. Every rupee is accounted for through a strict identity — income minus expenses becomes savings, savings become investments or cash, and investments are measured against inflation-adjusted life goals. Next.js and Supabase, mobile-first.
 
@@ -15,6 +15,7 @@ A self-hosted personal finance dashboard built around one idea: **your net worth
 - **Holdings** — investments, cash and debts on one balance sheet. Per-holding XIRR, realized and unrealized gain, and one overall XIRR for every investment ever made. Cash is a signed ledger, so credit-card float is shown as money owed rather than counted as an asset.
 - **Debts** — principal, EMI **inferred from the last payment and dated as inferred** (there is no EMI column), an implied annual rate solved numerically from the amortisation equation, and the portfolio's return over that same loan's life — because prepaying earns the loan's rate, risk free, and that is the only decision the row supports.
 - **Goal-based investing** — the interesting part, below.
+- **Sign in with a code, not just a link** — the email carries both. A magic link can only be redeemed in the browser that asked for it, so opening it from a mail app fails, and link scanners can spend it before you click; the code works anywhere. A failed link says why and points at the code rather than bouncing you silently.
 - **Public demo** — `/demo` is a shareable link that signs the visitor into a read-only account. Writes are blocked **in the database** by RLS, not just in the UI, since the demo hands out a real JWT. The demo's clock is frozen to a fixed day so the data and the app's idea of "now" cannot drift apart.
 - Dark mode, phone-first layout, and a categorical chart palette with a separately-chosen dark ramp — both validated for colour-blind separation against their own surface, not flipped automatically.
 
@@ -33,7 +34,7 @@ Goals are a planning overlay — investments live in one shared pool and goals *
 ## How it's built
 
 - **Next.js 16 (App Router) + React 19 + TypeScript** — pages are Server Components fetching in one `Promise.all`; interactivity lives in small client components.
-- **Supabase** — Postgres with row-level security on every table (`auth.uid() = user_id`), magic-link auth, session refresh in a Next.js proxy.
+- **Supabase** — Postgres with row-level security on every table (`auth.uid() = user_id`), passwordless email auth, session refresh in a Next.js proxy.
 - **Tailwind CSS 4**, **Recharts 3**, **Vercel**.
 - **All financial maths is pure functions under `lib/`** — no I/O, deterministic, independent of the UI, and unit-tested.
 - **Invariants live in the database**, not the app: one open phase per user (partial unique index), valuations must carry zero cash flow (check constraint), conditional foreign keys on money sources by kind.
@@ -57,6 +58,18 @@ npm test        # Node's built-in runner, no framework
 1. Create a project at https://supabase.com (free tier is fine).
 2. In **SQL Editor**, run `supabase/schema.sql` (tables, constraints, RLS policies).
 3. In **Authentication → Providers → Email**, ensure Email is enabled.
+   Then in **Authentication → Email Templates → Magic Link**, make sure the body
+   includes the code as well as the link:
+
+   ```html
+   <p>Your sign-in code is <strong>{{ .Token }}</strong></p>
+   <p>Or <a href="{{ .ConfirmationURL }}">click here</a> to sign in.</p>
+   ```
+
+   The default template has only the link. A link can be redeemed **only in the
+   browser that requested it** — mail apps open their own in-app browser, and
+   some providers' scanners spend the single-use link before you ever click it.
+   The code has neither problem, which is why it is the primary path here.
 4. In **Authentication → URL Configuration**, set the Site URL to your production URL and add `http://localhost:3000` as a redirect URL.
 5. Copy **Project URL** and **publishable key** from **Settings → API**.
 
@@ -69,7 +82,8 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000, enter your email, click the magic link.
+Open http://localhost:3000, enter your email, and type the code from the email
+(or click the link, if you're in the same browser).
 
 ### 3. Deploy to Vercel
 

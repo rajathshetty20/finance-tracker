@@ -8,6 +8,13 @@ import Logo from "../Logo";
 import { signInAsDemo } from "./actions";
 import { btnPrimary, btnQuiet, inputCls } from "../ui";
 
+// Supabase generates the email OTP at a length set per project (6-10 digits),
+// so neither bound is ours to hardcode. Slicing to 6 turns a valid 8-digit
+// code into a wrong one and fails every sign-in — the bug this app's sibling
+// shipped once already.
+const OTP_MIN = 6;
+const OTP_MAX = 10;
+
 export default function LoginForm({
   demoEnabled,
   notice,
@@ -19,6 +26,31 @@ export default function LoginForm({
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [demoPending, setDemoPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The same email carries a link and a code. The link only works in the
+  // browser that asked for it — mail apps open their own — and scanners can
+  // spend it before you click. A code is not a URL, so nothing can consume it
+  // on your behalf and it works in any browser.
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
+  async function onVerify(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setVerifying(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code.trim(),
+      type: "email",
+    });
+    setVerifying(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    // A full load, so every Server Component re-renders with the new session.
+    window.location.assign("/");
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -79,29 +111,48 @@ export default function LoginForm({
         )}
 
         {status === "sent" ? (
-          // Replaces the form rather than appending a line under it: the next
-          // step is in the inbox, so leaving a live "Send link" button on
-          // screen only invites a second, confusing email.
-          <div className="space-y-3">
+          <form onSubmit={onVerify} className="space-y-3">
             <p className="flex items-start gap-2 text-sm">
               <Check className="mt-[3px] h-4 w-4 shrink-0 text-up" />
               <span>
-                <span className="font-medium">Link sent.</span> Check{" "}
-                <span className="font-medium">{email}</span> and open it on this device — the link
-                signs you in wherever it is opened.
+                <span className="font-medium">Sent to {email}.</span> Enter the code from that
+                email — it works in any browser. The link in the same email works too, but only
+                in this one.
               </span>
             </p>
+            <label htmlFor="code" className="block text-[0.8125rem] font-medium">
+              Code from the email
+            </label>
+            <input
+              id="code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, OTP_MAX))}
+              className={`${inputCls} tabular-nums tracking-[0.3em]`}
+            />
+            <button
+              type="submit"
+              disabled={verifying || code.length < OTP_MIN}
+              className={`${btnPrimary} w-full`}
+            >
+              {verifying ? "Signing in…" : "Sign in"}
+            </button>
             <button
               type="button"
               onClick={() => {
                 setStatus("idle");
-                setEmail("");
+                setCode("");
+                setError(null);
               }}
-              className={btnQuiet}
+              className="text-[0.8125rem] text-ink-3 underline"
             >
               Use a different address
             </button>
-          </div>
+          </form>
         ) : (
           <form onSubmit={onSubmit} className="space-y-3">
             <label htmlFor="email" className="block text-[0.8125rem] font-medium">
@@ -125,10 +176,10 @@ export default function LoginForm({
               className={`${btnPrimary} flex w-full items-center justify-center gap-2`}
             >
               <Mail className="h-4 w-4" />
-              {status === "sending" ? "Sending…" : "Email me a sign-in link"}
+              {status === "sending" ? "Sending…" : "Email me a code"}
             </button>
             <p className="text-[0.75rem] text-ink-3">
-              No password. We send a one-time link that signs you in.
+              No password. You get a one-time code, and a link if you prefer.
             </p>
           </form>
         )}
