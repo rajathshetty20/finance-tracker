@@ -144,7 +144,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           which of them was the answer. */}
       <section className="rounded-xl border border-rule bg-surface p-5">
         <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-          Funded without investing more
+          Self-funded
         </div>
         <div
           className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${

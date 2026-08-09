@@ -377,7 +377,7 @@ function GoalCard({
 
       <div className="mt-3">
         <div className="flex items-baseline justify-between text-[0.6875rem] text-ink-3">
-          <span>funded without investing more</span>
+          <span>self-funded</span>
           <span className="tabular-nums">{Math.round(a.coverage * 100)}%</span>
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
