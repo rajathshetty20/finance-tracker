@@ -215,7 +215,7 @@ begin
     open_book := open_book + sip;
   end loop;
 
-  -- ── Investment 2: Flexi cap fund — SIP 10k ─────────────────────────────
+  -- ── Investment 2: Flexi cap fund — SIP 25k ─────────────────────────────
   insert into public.investments (user_id, name, asset_class_id, opened_on, notes)
   values (u_id, 'Flexi Cap Fund', ac_eq, (base + make_interval(months => 10, days => 7))::date, 'Satellite equity SIP')
   returning id into inv_flexi;
@@ -229,7 +229,7 @@ begin
                        )::numeric) + 25000;
     insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note)
     values (u_id, inv_flexi, d, 'contribution', 25000, val, 'Monthly SIP');
-    open_book := open_book + 10000;
+    open_book := open_book + 25000;
   end loop;
 
   -- ── Investment 3: PPF — ₹50k/yr, steady 7.1% ───────────────────────────
