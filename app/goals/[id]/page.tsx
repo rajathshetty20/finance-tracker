@@ -149,11 +149,8 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           would reach ₹0" — every figure a placeholder. */}
       {isActive ? (
         <section className="rounded-xl border border-rule bg-surface p-5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-            Self-funded
-          </div>
           <div
-            className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${
+            className={`text-[2.2rem] font-semibold leading-none tabular-nums ${
               coveragePct !== null && coveragePct >= 100 ? "text-up" : ""
             }`}
           >
@@ -196,10 +193,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         </section>
       ) : (
         <section className="rounded-xl border border-rule bg-surface p-5">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-            {goal.status === "achieved" ? "Achieved" : "Archived"}
-          </div>
-          <div className="mt-1 text-[2.2rem] font-semibold leading-none tabular-nums">
+          <div className="text-[2.2rem] font-semibold leading-none tabular-nums">
             {fmtINR(target)}
           </div>
           <p className="mt-1 text-[0.8125rem] text-ink-3">
