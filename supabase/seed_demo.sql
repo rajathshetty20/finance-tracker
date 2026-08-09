@@ -85,12 +85,12 @@ begin
 
   -- ── Phases ─────────────────────────────────────────────────────────────
   insert into public.phases (user_id, name, start_date, end_date, notes)
-  values (u_id, 'Data analyst — Google', base, pb - 1,
-          'Data analyst, first full-time role')
+  values (u_id, 'SDE1 — Google', base, pb - 1,
+          null)
   returning id into p1;
 
   insert into public.phases (user_id, name, start_date, notes)
-  values (u_id, 'Senior engineer — Meta', pb, 'Switched for comp + growth')
+  values (u_id, 'SE2 — Meta', pb, null)
   returning id into p2;
 
   -- ── Categories ─────────────────────────────────────────────────────────
@@ -113,12 +113,12 @@ begin
     d := (base + make_interval(months => m))::date;
     ph_id := case when d < pb then p1 else p2 end;
 
-    -- salary tiers: joins at 95k, appraisal to 108k, job switch to 145k, appraisal to 160k
+    -- salary tiers: joins at 145k, appraisal to 158k, switch to 195k, appraisal to 210k
     amt := case
-      when m < 7  then 95000
-      when m < 19 then 108000
-      when m < 31 then 145000
-      else 160000
+      when m < 7  then 145000
+      when m < 19 then 158000
+      when m < 31 then 195000
+      else 210000
     end;
     insert into public.incomes (user_id, phase_id, category_id, date, amount, note)
     values (u_id, ph_id, cat_salary, d, amt, 'Monthly salary');
@@ -204,7 +204,12 @@ begin
   for m in 0..33 loop
     d := (base + make_interval(months => 1 + m, days => 4))::date;
     sip := case when m < 19 then 20000 else 30000 end;
-    val := round(val * (1 + 0.009 + 0.025 * sin(m * 1.7))::numeric) + sip;
+    val := round(val * (1 + 0.010
+                          + 0.045 * sin(m * 1.70)
+                          + 0.030 * sin(m * 0.37)
+                          + 0.020 * sin(m * 2.90)
+                          - (case when m between 14 and 17 then 0.055 else 0 end)
+                       )::numeric) + sip;
     insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note)
     values (u_id, inv_nifty, d, 'contribution', sip, val, 'Monthly SIP');
     open_book := open_book + sip;
@@ -217,7 +222,11 @@ begin
   val := 0;
   for m in 0..24 loop
     d := (base + make_interval(months => 10 + m, days => 7))::date;
-    val := round(val * (1 + 0.011 + 0.03 * sin(m * 2.1))::numeric) + 10000;
+    val := round(val * (1 + 0.011
+                          + 0.050 * sin(m * 2.10 + 0.9)
+                          + 0.028 * sin(m * 0.53)
+                          - (case when m between 12 and 15 then 0.060 else 0 end)
+                       )::numeric) + 10000;
     insert into public.investment_entries (user_id, investment_id, date, entry_type, amount, total_value_after, note)
     values (u_id, inv_flexi, d, 'contribution', 10000, val, 'Monthly SIP');
     open_book := open_book + 10000;
@@ -360,7 +369,7 @@ begin
   -- Phase rollover, exactly as app/phases/actions.ts computes it.
   -- (Excluded from ms_total: the cash identity skips phase_rollover rows.)
   insert into public.money_sources (user_id, name, amount, date, kind, phase_id)
-  values (u_id, 'Rollover from Data analyst — Google', p1_inc - p1_exp, pb - 1, 'phase_rollover', p1);
+  values (u_id, 'Rollover from SDE1 — Google', p1_inc - p1_exp, pb - 1, 'phase_rollover', p1);
 
   -- ── Cash balances — derived from the net-worth identity so it reconciles:
   --    cash = money_sources(excl rollover) + Σ(income−expense) − open book + open principal outstanding
