@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -241,7 +242,8 @@ export default async function HoldingsPage() {
                         {classNameById.get(inv.asset_class_id ?? "") ?? "unclassified"}
                       </span>
                     </span>
-                    <span className="shrink-0 text-right">
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-right">
                       <span className="block text-sm tabular-nums">{fmtINR(market)}</span>
                       <span
                         className={`block text-[0.6875rem] tabular-nums ${
@@ -252,6 +254,8 @@ export default async function HoldingsPage() {
                         {fmtINR(Math.abs(gain))} · {formatXirr(xirr(flowsFor(inv, entries, today)))}{" "}
                         XIRR
                       </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-ink-3" />
                     </span>
                   </Link>
                 </li>
@@ -274,9 +278,10 @@ export default async function HoldingsPage() {
                       className="flex items-baseline justify-between gap-3 py-2 hover:bg-surface-2"
                     >
                       <span className="min-w-0 truncate text-sm text-ink-2">{inv.name}</span>
-                      <span className="shrink-0 text-[0.6875rem] tabular-nums text-ink-3">
+                      <span className="flex shrink-0 items-center gap-1 text-[0.6875rem] tabular-nums text-ink-3">
                         closed {fmtDate(inv.closed_on!)} · XIRR{" "}
                         {formatXirr(xirr(flowsFor(inv, byInvId.get(inv.id) ?? [], today)))}
+                        <ChevronRight className="h-3.5 w-3.5" />
                       </span>
                     </Link>
                   </li>
@@ -362,10 +367,11 @@ export default async function HoldingsPage() {
               const monthsLeft = emi && emi.amount > 0 ? Math.ceil(pending / emi.amount) : null;
               return (
                 <li key={d.id}>
-                  <Link href={`/debts/${d.id}`} className="block hover:underline">
+                  <Link href={`/debts/${d.id}`} className="block">
                     {/* Descriptions run to 100+ characters and carry the terms;
                         they wrap rather than truncate. */}
-                    <span className="block text-sm leading-snug">{d.description}</span>
+                    <span className="text-sm leading-snug">{d.description}</span>
+                    <ChevronRight className="ml-1 inline h-3.5 w-3.5 shrink-0 align-[-2px] text-ink-3" />
                   </Link>
                   <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[0.8125rem]">
                     <span className="tabular-nums text-ink-2">{fmtINR(pending)} still to pay</span>
@@ -431,8 +437,9 @@ export default async function HoldingsPage() {
                       className="flex items-baseline justify-between gap-3 py-2 hover:bg-surface-2"
                     >
                       <span className="min-w-0 truncate text-sm text-ink-2">{d.description}</span>
-                      <span className="shrink-0 text-[0.6875rem] text-ink-3">
+                      <span className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-ink-3">
                         closed {fmtDate(d.closed_on!)}
+                        <ChevronRight className="h-3.5 w-3.5" />
                       </span>
                     </Link>
                   </li>

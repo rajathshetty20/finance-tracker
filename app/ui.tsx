@@ -1,3 +1,4 @@
+import type { GoalVerdict } from "@/lib/goals";
 // The shapes the whole app is built from.
 //
 // Previously `rounded-xl border … shadow-sm` and its variants appeared in
@@ -127,3 +128,23 @@ export function assetClassColor(classId: string, orderedClassIds: string[]): str
   const i = orderedClassIds.indexOf(classId);
   return `var(--cat-${((i < 0 ? 0 : i) % 8) + 1})`;
 }
+
+/**
+ * How a goal verdict looks — badge and progress bar, in one place.
+ *
+ * These lived twice: Plan coloured the bar from the verdict (amber when due,
+ * green when funded) while the goal page coloured it from a rounded coverage
+ * percentage, so the same goal drew a different colour on each screen — a due
+ * goal was amber on one and blue on the other. The verdict is the only input
+ * either bar should have.
+ */
+export const GOAL_VERDICT_STYLE: Record<
+  GoalVerdict["kind"],
+  { label: string; badge: string; bar: string }
+> = {
+  "no-plan": { label: "no plan", badge: "bg-warn-soft text-warn", bar: "bg-warn" },
+  due: { label: "due now", badge: "bg-warn-soft text-warn", bar: "bg-warn" },
+  funded: { label: "fully funded", badge: "bg-up-soft text-up", bar: "bg-up" },
+  // Neutral, not red: still paying into a goal is the normal state, not a fault.
+  "in-progress": { label: "in progress", badge: "bg-surface-2 text-ink-2", bar: "bg-accent" },
+};

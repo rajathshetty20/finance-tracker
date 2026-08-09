@@ -11,13 +11,13 @@ import {
   poolByAssetClass,
   targetCorpus,
   STEP_UP_RATE,
-  type GoalVerdict,
 } from "@/lib/goals";
 import { fmtINR, fmtMonthYear } from "@/lib/dates";
 import { appToday } from "@/lib/demo";
 import GlidePathEditor from "./GlidePathEditor";
 import GoalActions from "./GoalActions";
 import GoalChart from "./GoalChart";
+import { GOAL_VERDICT_STYLE } from "@/app/ui";
 
 export default async function GoalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -91,9 +91,9 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   // Same verdict vocabulary as /plan, from the same function — a goal cannot
   // read "on track" on one screen and "behind" on the other.
   const verdict = analysis ? goalVerdict(analysis) : null;
-  const verdictBadge = verdict
-    ? GOAL_BADGE[verdict.kind]
-    : { label: "", cls: "" };
+  const verdictStyle = verdict
+    ? GOAL_VERDICT_STYLE[verdict.kind]
+    : { label: "", badge: "", bar: "bg-accent" };
   const coveragePct = analysis ? Math.round(analysis.coverage * 100) : null;
   const needed = analysis?.projection.fundedCorpus ?? 0;
 
@@ -126,8 +126,8 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">{goal.name}</h1>
           {verdict && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${verdictBadge.cls}`}>
-              {verdictBadge.label}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${verdictStyle.badge}`}>
+              {verdictStyle.label}
             </span>
           )}
           {goal.status !== "active" && (
@@ -151,7 +151,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         <section className="rounded-xl border border-rule bg-surface p-5">
           <div
             className={`text-[2.2rem] font-semibold leading-none tabular-nums ${
-              coveragePct !== null && coveragePct >= 100 ? "text-up" : ""
+              verdict?.kind === "funded" ? "text-up" : ""
             }`}
           >
             {coveragePct !== null ? `${coveragePct}%` : "—"}
@@ -159,9 +159,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
             <div
-              className={`h-full rounded-full ${
-                coveragePct !== null && coveragePct >= 100 ? "bg-up" : "bg-accent"
-              }`}
+              className={`h-full rounded-full ${verdictStyle.bar}`}
               style={{ width: `${Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, coveragePct ?? 0))}%` }}
             />
           </div>
@@ -283,9 +281,3 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   );
 }
 
-const GOAL_BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
-  "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
-  due: { label: "due now", cls: "bg-warn-soft text-warn" },
-  funded: { label: "fully funded", cls: "bg-up-soft text-up" },
-  "in-progress": { label: "in progress", cls: "bg-surface-2 text-ink-2" },
-};

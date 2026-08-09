@@ -4,7 +4,6 @@ import {
   Area,
   CartesianGrid,
   ComposedChart,
-  Legend,
   ReferenceDot,
   ResponsiveContainer,
   Tooltip,
@@ -40,16 +39,12 @@ type TooltipItem = { dataKey?: string | number; value?: number };
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipItem[]; label?: number | string }) {
   if (!active || !payload || payload.length === 0) return null;
   const planned = Number(payload.find((p) => p.dataKey === "planned")?.value ?? 0);
-  const target = Number(payload.find((p) => p.dataKey === "target")?.value ?? 0);
   return (
     <div style={{ backgroundColor: "var(--chart-surface)", border: "1px solid var(--chart-border)", borderRadius: 8, fontSize: 12, padding: "8px 10px", lineHeight: 1.5 }}>
       <div style={{ color: "var(--ink-3)" }}>{fmtDate(Number(label))}</div>
       <div style={{ marginTop: 4 }}>
         <span style={{ color: "var(--ink-3)" }}>Needed </span>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(planned)}</span>
-      </div>
-      <div>
-        <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmtFull(target)}</span>
       </div>
     </div>
   );
@@ -75,12 +70,6 @@ export default function GoalChart({
       <div className="mt-3 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="plannedGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--goal)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="var(--goal)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis
               dataKey="ts"
@@ -105,9 +94,7 @@ export default function GoalChart({
               domain={[0, (max: number) => max * 1.08]}
             />
             <Tooltip content={<ChartTooltip />} />
-            <Legend verticalAlign="top" height={24} iconType="plainline" wrapperStyle={{ fontSize: 11, color: "var(--ink-3)" }} />
             <Area isAnimationActive={false} type="monotone" dataKey="planned" name="Needed" stroke="var(--goal)" strokeWidth={2.5} fill="none" dot={false} />
-            
             <ReferenceDot
               x={clampedTs}
               y={attributed}

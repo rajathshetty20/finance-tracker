@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AssetClass,
@@ -29,6 +30,7 @@ import { currentMonthStartISO, fmtINR, fmtMonthYear } from "@/lib/dates";
 import Disclose from "../Disclose";
 import CreateGoalForm from "../goals/CreateGoalForm";
 import AssetClassesEditor from "../goals/AssetClassesEditor";
+import { GOAL_VERDICT_STYLE } from "@/app/ui";
 
 function fmtCompact(n: number): string {
   const a = Math.abs(n);
@@ -314,8 +316,9 @@ export default async function PlanPage() {
                       {g.status} · {fmtMonthYear(g.end_date)}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[0.8125rem] tabular-nums text-ink-3">
+                  <span className="flex shrink-0 items-center gap-1 text-[0.8125rem] tabular-nums text-ink-3">
                     {fmtCompact(targetCorpus(g))}
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </span>
                 </Link>
               </li>
@@ -344,14 +347,6 @@ export default async function PlanPage() {
   );
 }
 
-const BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
-  "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
-  due: { label: "due now", cls: "bg-warn-soft text-warn" },
-  funded: { label: "fully funded", cls: "bg-up-soft text-up" },
-  // Neutral, not red: still paying into a goal is the normal state, not a fault.
-  "in-progress": { label: "in progress", cls: "bg-surface-2 text-ink-2" },
-};
-
 function GoalCard({
   a,
   monthly,
@@ -361,27 +356,30 @@ function GoalCard({
 }) {
   const { goal, projection: p, attributed } = a;
   const v = goalVerdict(a);
-  const badge = BADGE[v.kind];
+  const style = GOAL_VERDICT_STYLE[v.kind];
 
   const coveragePct = Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, a.coverage * 100));
-  const barTone =
-    v.kind === "funded" ? "bg-up" : v.kind === "due" ? "bg-warn" : "bg-accent";
 
   return (
-    <div className="rounded-xl border border-rule bg-surface p-4">
+    <Link
+      href={`/goals/${goal.id}`}
+      className="block rounded-xl border border-rule bg-surface p-4 transition-colors hover:bg-surface-2"
+    >
       <div className="flex items-start justify-between gap-3">
-        <Link href={`/goals/${goal.id}`} className="min-w-0 hover:underline">
-          <div className="truncate text-sm font-medium">{goal.name}</div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <span className="truncate text-sm font-medium">{goal.name}</span>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+          </div>
           <div className="mt-0.5 text-xs text-ink-3">
             {fmtMonthYear(goal.end_date)} ·{" "}
             {p.monthsRemaining === 0 ? "due now" : `${formatMonthsLeft(p.monthsRemaining)} left`}
-
           </div>
-        </Link>
+        </div>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.cls}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${style.badge}`}
         >
-          {badge.label}
+          {style.label}
         </span>
       </div>
 
@@ -390,7 +388,7 @@ function GoalCard({
           {Math.round(a.coverage * 100)}%
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
-          <div className={`h-full rounded-full ${barTone}`} style={{ width: `${coveragePct}%` }} />
+          <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${coveragePct}%` }} />
         </div>
       </div>
 
@@ -411,7 +409,7 @@ function GoalCard({
         · target {fmtCompact(p.targetCorpus)} by {fmtMonthYear(a.goal.end_date)}
         {monthly > 0 && <> · invest {fmtINR(monthly)}/mo</>}
       </p>
-    </div>
+    </Link>
   );
 }
 
@@ -422,11 +420,7 @@ function VerdictLine({ a, v }: { a: GoalAnalysis; v: GoalVerdict }) {
     case "no-plan":
       return (
         <>
-          No glide path set.{" "}
-          <Link href={`/goals/${a.goal.id}`} className="underline">
-            Set one
-          </Link>
-          .
+          No glide path set.
         </>
       );
     case "due":
