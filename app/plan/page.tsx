@@ -265,7 +265,9 @@ export default async function PlanPage() {
                 />
                 <span className="min-w-0 flex-1 truncate text-ink-2">
                   Unclaimed — {r.name}
-                  <span className="ml-2 text-ink-3">{r.targeted ? "goals full" : "untargeted"}</span>
+                  <span className="ml-2 text-ink-3">
+                    ({r.targeted ? "goals full" : "untargeted"})
+                  </span>
                 </span>
                 <span className="tabular-nums text-ink-2">{fmtINR(r.amt)}</span>
               </li>
