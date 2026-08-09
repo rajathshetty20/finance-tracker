@@ -76,7 +76,14 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     : "—";
   const target = analysis?.projection.targetCorpus ?? 0;
   const attributed = analysis?.attributed ?? 0;
-  const fundedPct = analysis ? Math.round(analysis.fundedPct * 100) : 0;
+  // A 26-year goal legitimately holds a fraction of a percent of its final
+  // target. Rounding 0.30% to a bare "0%" says "nothing", which is a different
+  // claim from "not much yet".
+  const fundedPctRaw = analysis ? analysis.fundedPct * 100 : 0;
+  const fundedPct =
+    fundedPctRaw > 0 && fundedPctRaw < 1
+      ? fundedPctRaw.toFixed(fundedPctRaw < 0.1 ? 2 : 1)
+      : Math.round(fundedPctRaw).toString();
 
   // Same verdict vocabulary as /plan, from the same function — a goal cannot
   // read "on track" on one screen and "behind" on the other.
