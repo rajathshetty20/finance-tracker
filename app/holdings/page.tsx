@@ -15,7 +15,7 @@ import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { marketValueOf } from "@/lib/goals";
 import { inferEmis } from "@/lib/money";
 import { appToday } from "@/lib/demo";
-import { fmtDate, fmtINR } from "@/lib/dates";
+import { fmtDate, fmtINR, cashFreshness } from "@/lib/dates";
 import Disclose from "../Disclose";
 import CashRow from "../cash/CashRow";
 import AddCashForm from "../cash/AddCashForm";
@@ -302,10 +302,7 @@ export default async function HoldingsPage() {
         </div>
         <p className="mt-0.5 text-xs text-ink-3">
           Typed in by hand. Grouped by sign — a negative balance is money owed.
-          {oldestCash &&
-            (daysSince(oldestCash, today) === 0
-              ? " All updated today."
-              : ` Oldest was updated ${daysSince(oldestCash, today)} days ago.`)}
+          {oldestCash && ` ${cashFreshness(daysSince(oldestCash, today))}`}
         </p>
 
         {cash.length === 0 ? (

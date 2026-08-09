@@ -18,7 +18,7 @@ import type {
 import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass } from "@/lib/goals";
 import { cashflowBases } from "@/lib/money";
 import { appToday } from "@/lib/demo";
-import { currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
+import { currentMonthStartISO, fmtINR as fmt, cashFreshness } from "@/lib/dates";
 import { assetClassColor } from "./ui";
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
@@ -325,14 +325,19 @@ export default async function DashboardPage() {
                   {cash_discrepancy > 0
                     ? "The ledger accounts for more cash than you hold — money spent but not recorded."
                     : "You hold more cash than the ledger accounts for — money received but not recorded."}{" "}
-                  <Link href="/money-sources" className="underline">
-                    Check the sources
-                  </Link>{" "}
-                  or{" "}
+                  {/* Money sources are materialised when a phase closes, not
+                      typed, so "check the sources" was a dead end: the only
+                      figure a person can actually correct here is a stale cash
+                      balance. */}
                   <Link href="/holdings" className="underline">
-                    sync cash
+                    Update your cash balances
                   </Link>
-                  {oldestCashUpdate && ` · oldest cash entry ${oldestCashAgeDays}d old`}.
+                  .
+                  {/* Only when they are actually stale: "all updated today" is
+                      no help next to a request to update them. */}
+                  {oldestCashUpdate && oldestCashAgeDays > 0 && (
+                    <> {cashFreshness(oldestCashAgeDays)}</>
+                  )}
                 </>
               )}
             </span>

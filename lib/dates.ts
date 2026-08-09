@@ -76,3 +76,9 @@ export function fmtDate(iso: string, style: "long" | "short" = "long"): string {
     })
     .replace("Sept ", "Sep ");
 }
+
+/** "All updated today." / "Oldest was updated 3 days ago." — never "0d ago". */
+export function cashFreshness(days: number): string {
+  if (days <= 0) return "All updated today.";
+  return `Oldest was updated ${days} day${days === 1 ? "" : "s"} ago.`;
+}
