@@ -17,7 +17,7 @@ import {
   monthKeyOf,
 } from "@/lib/money";
 import { appToday } from "@/lib/demo";
-import { currentMonthStartISO, fmtINR } from "@/lib/dates";
+import { currentMonthStartISO, fmtINR, fmtMonthYear } from "@/lib/dates";
 import { inWindow, parseRange, rangeDescription, rangeWindow } from "@/lib/range";
 import Disclose from "../Disclose";
 import LedgerControls from "./LedgerControls";
@@ -129,8 +129,7 @@ export default async function CashflowPage({
   // comparison that is not being made. Earlier phases get their own section.
   const rows = ledger === "expenses" ? allExpenses : allIncomes;
   const win = rangeWindow(range, today);
-  const matches = (e: EntryWithJoins) => {
-    if (!inWindow(e.date, win)) return false;
+  const matchesFilters = (e: EntryWithJoins) => {
     if (catFilter && e.category_id !== catFilter) return false;
     if (q) {
       const hay = `${e.note ?? ""} ${e.category?.name ?? ""}`.toLowerCase();
@@ -138,8 +137,15 @@ export default async function CashflowPage({
     }
     return true;
   };
+  const matches = (e: EntryWithJoins) => inWindow(e.date, win) && matchesFilters(e);
   const filtered = rows.filter((e) => e.phase_id === currentPhase.id && matches(e));
-  const earlier = rows.filter((e) => e.phase_id !== currentPhase.id && matches(e));
+  // Closed phases ignore the period filter. "Last 90 days" is a question about
+  // the phase you are in; applied to a phase that ended sixteen months ago it
+  // matches nothing, so the section silently vanished at the default range.
+  // Category and search still apply — those ask *what*, not *when*.
+  const earlier = rows.filter(
+    (e) => e.phase_id !== currentPhase.id && matchesFilters(e),
+  );
   const earlierByPhase = phases
     .filter((p) => p.id !== currentPhase.id)
     .map((p) => ({ phase: p, rows: earlier.filter((e) => e.phase_id === p.id) }))
@@ -340,10 +346,11 @@ export default async function CashflowPage({
             <div className="space-y-4">
               {earlierByPhase.map(({ phase, rows: grp }) => (
                 <section key={phase.id}>
-                  <h3 className="mb-1.5 flex items-baseline gap-2 text-[0.8125rem] font-medium text-ink-3">
+                  <h3 className="mb-1.5 flex flex-wrap items-baseline gap-2 text-[0.8125rem] font-medium text-ink-3">
                     {phase.name}
                     <span className="text-[0.6875rem] font-normal">
-                      closed — entries locked
+                      {fmtMonthYear(phase.start_date)} –{" "}
+                      {phase.end_date ? fmtMonthYear(phase.end_date) : "present"} · entries locked
                     </span>
                   </h3>
                   <ul className="divide-y divide-rule-soft overflow-hidden rounded-xl border border-rule bg-surface">

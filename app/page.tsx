@@ -340,12 +340,13 @@ export default async function DashboardPage() {
       {/* One month, subtracted in order. */}
       <section className="rounded-xl border border-rule bg-surface p-4">
         <h2 className="text-sm font-medium">
-          Where a month goes
+          A typical month
           {!showAverages && <span className="ml-2 text-xs">(needs a completed month)</span>}
         </h2>
         {showAverages && (
           <p className="text-xs text-ink-3">
-            {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"}; % of what you earn.
+            Averaged over {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"}.
+            Percentages are shares of what you earn.
           </p>
         )}
         {showAverages && avgInvestable !== null ? (
