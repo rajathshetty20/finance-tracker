@@ -9,6 +9,7 @@ import {
   monthsBetween,
   plannedSeries,
   poolByAssetClass,
+  STEP_UP_RATE,
   type GoalVerdict,
 } from "@/lib/goals";
 import { fmtINR, fmtMonthYear } from "@/lib/dates";
@@ -178,7 +179,16 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
             <span className="font-semibold tabular-nums text-ink">
               {fmtINR(analysis.requiredMonthly)}
             </span>{" "}
-            a month to close it.
+            a month, starting now, and this reaches {fmtINR(target)} by{" "}
+            {fmtMonthYear(goal.end_date)}.
+            {" "}
+            {/* "to close it" hid three assumptions: the starting corpus, the
+                step-up, and the returns doing the rest of the work. */}
+            <span className="text-ink-3">
+              That is this year&apos;s figure — it assumes you raise it{" "}
+              {Math.round(STEP_UP_RATE * 100)}% each year, and that the{" "}
+              {fmtINR(attributed)} already there grows along the glide path below.
+            </span>
           </p>
         )}
       </section>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { AssetClass, GoalAllocation } from "@/lib/types";
 import { saveGlidePath, type GlideRow } from "../actions";
 import { useGuard } from "../../useGuard";
-import { assetClassColor } from "../../ui";
+import { assetClassColor, btnPrimary, btnQuiet } from "../../ui";
 
 // A glide path is a shape over time. We render it as a full-height stacked area
 // (today on the left, the goal date on the right). Only the asset classes this
@@ -154,6 +154,39 @@ export default function GlidePathEditor({
   };
 
   const setMs = (fn: (ms: Milestone[]) => Milestone[]) => setPlan((p) => ({ ...p, milestones: fn(p.milestones) }));
+
+  /**
+   * Set one class's share at one milestone by typing it.
+   *
+   * Dragging can only ever express what the pointer can hit — "exactly 65%" is
+   * luck — and a pointer-only control is unreachable by keyboard entirely. The
+   * remaining classes absorb the difference in proportion to what they already
+   * hold, so the column still totals 100 the way a drag leaves it.
+   */
+  const setPct = (msId: string, idx: number, raw: number) => {
+    const target = clamp(Math.round(raw), 0, 100);
+    setMs((ms) =>
+      ms.map((m) => {
+        if (m.id !== msId) return m;
+        const rest = 100 - target;
+        const others = m.pct.filter((_, i) => i !== idx);
+        const otherSum = others.reduce((a, b) => a + b, 0);
+        const next = m.pct.map((v, i) => {
+          if (i === idx) return target;
+          if (otherSum > 0) return (v / otherSum) * rest;
+          return rest / Math.max(1, others.length);
+        });
+        return { ...m, pct: toHundred(next) };
+      }),
+    );
+  };
+
+  /** Blended expected return implied by a milestone's mix. */
+  const blendedAt = (m: Milestone) =>
+    m.pct.reduce((acc, pct, i) => {
+      const cls = assetClasses.find((c) => c.id === active[i]);
+      return acc + (pct / 100) * Number(cls?.expected_return ?? 0);
+    }, 0);
   function touch() {
     setSaved(false);
     setError(null);
@@ -428,14 +461,11 @@ export default function GlidePathEditor({
                   {/* The final milestone sits on the right edge; centring its label
                       there clipped the trailing character against PAD.right, and it
                       also overprinted the static "goal date" caption. */}
-                  {m.years !== 0 && (
-                    <text
-                      x={x}
-                      y={H - PAD.bottom + 16}
-                      fontSize={10}
-                      fill="var(--ink-3)"
-                      textAnchor={mi === ordered.length - 1 ? "end" : "middle"}
-                    >
+                  {/* The axis captions "today" at the left end and "goal date"
+                      at the right; a milestone label at either end overprints
+                      it. The table below names every milestone anyway. */}
+                  {m.years !== 0 && mi !== 0 && (
+                    <text x={x} y={H - PAD.bottom + 16} fontSize={10} fill="var(--ink-3)" textAnchor="middle">
                       {yearLabel(m.years)}
                     </text>
                   )}
@@ -464,20 +494,66 @@ export default function GlidePathEditor({
         )}
       </div>
 
+      {/* The same plan as numbers. The chart is faster to shape; this is the
+          only way to hit an exact figure, the only way in without a pointer,
+          and the only place the editor says what the shape is worth — that
+          blended return is what sets the corpus this goal needs.
+          One block per milestone rather than a six-column table: at 402px the
+          table scrolled sideways and clipped the Return column. */}
+      {active.length > 0 && ordered.length > 0 && (
+        <div className="space-y-2">
+          {ordered.map((m) => (
+            <div key={m.id} className="rounded-lg border border-rule p-2.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[0.8125rem] font-medium tabular-nums">
+                  {m.years === 0 ? "At the goal date" : `${yearLabel(m.years)} before`}
+                </span>
+                <span className="text-[0.6875rem] tabular-nums text-ink-3">
+                  {blendedAt(m).toFixed(1)}% a year blended
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {active.map((id, i) => (
+                  <label key={id} className="flex items-center gap-1.5 text-[0.75rem]">
+                    <i
+                      className="h-2 w-2 shrink-0 rounded-sm"
+                      style={{ background: colorOf(id) }}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-ink-2">{nameOf(id)}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round(m.pct[i])}
+                      aria-label={`${nameOf(id)} at ${yearLabel(m.years)} before the goal date`}
+                      onChange={(e) => setPct(m.id, i, Number(e.target.value))}
+                      className="w-12 shrink-0 rounded-md border border-rule bg-surface px-1.5 py-1 text-right tabular-nums outline-none focus:border-ink"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={onSave} disabled={pending} className="rounded-md bg-ink px-4 py-1.5 text-sm font-medium text-ground hover:opacity-90 disabled:opacity-60">
+        <button type="button" onClick={onSave} disabled={pending} className={btnPrimary}>
           {pending ? "Saving..." : "Save plan"}
         </button>
-        <button type="button" onClick={addMilestone} className="rounded-md border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface-2">
+        <button type="button" onClick={addMilestone} className={btnQuiet}>
           + Add milestone
         </button>
         {saved && <span className="text-xs text-up">Saved.</span>}
         {error && <span className="text-sm text-down">{error}</span>}
       </div>
       <p className="text-xs text-ink-3">
-        Tap a class to add or remove it from this goal. Drag a dot up/down to shift the split at a
-        milestone; drag the marker on the axis to move it in time. Use “+ Add milestone” (or
-        double-click the chart) to add one, ✕ to remove. The column always totals 100%.
+        Drag a dot to shift the split, or type the percentages in the table — the other classes
+        absorb the difference so each row totals 100%. Drag a marker on the axis to move a
+        milestone in time; “+ Add milestone” or a double-click adds one, ✕ removes it. Return is
+        the blend implied by that row, and it is what sets the corpus this goal needs.
       </p>
     </div>
   );

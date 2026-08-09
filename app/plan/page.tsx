@@ -18,6 +18,7 @@ import {
   goalVerdict,
   planSummary,
   poolByAssetClass,
+  STEP_UP_RATE,
   type GoalAnalysis,
   type GoalVerdict,
 } from "@/lib/goals";
@@ -278,7 +279,10 @@ export default async function PlanPage() {
       {monthlyByClass.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium">Where the monthly money goes</h2>
-          <p className="mt-0.5 text-xs text-ink-3">{fmtINR(required)}, split by class.</p>
+          <p className="mt-0.5 text-xs text-ink-3">
+            {fmtINR(required)}, split by class. This year&apos;s figure — contributions are assumed
+            to rise {Math.round(STEP_UP_RATE * 100)}% a year.
+          </p>
           <ul className="mt-3 divide-y divide-rule-soft">
             {monthlyByClass.map((r) => (
               <li key={r.name} className="flex items-baseline justify-between gap-3 py-2 text-sm">
