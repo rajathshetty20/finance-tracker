@@ -587,17 +587,24 @@ export type GoalVerdict =
   | { kind: "no-plan" }
   /** Past its date. `short` is target − attributed, 0 when met. */
   | { kind: "due"; short: number }
-  /** Holds everything it needs: left alone, it reaches the target on time. */
-  | { kind: "on-track" }
-  /** Short of what it needs. `short` is the gap, in rupees. */
-  | { kind: "behind"; short: number };
+  /** Holds enough that it reaches the target with no further investing. */
+  | { kind: "funded" }
+  /**
+   * Still accumulating. `short` is the distance to the self-funding corpus.
+   *
+   * Deliberately NOT "behind": the bar it is measured against is the amount
+   * that would let you STOP investing, so any goal you are still paying into
+   * sits below it. Calling that behind implies a missed schedule, which is the
+   * reading this engine was rewritten to remove.
+   */
+  | { kind: "in-progress"; short: number };
 
 /**
  * The single definition of how a goal is doing.
  *
- * Goals claim from one pool, soonest due first. A goal that received
- * everything it needs is on track; one that did not is behind, by the amount
- * it did not get. That is all — there is no notion of "where a plan says you
+ * Goals claim from one pool, soonest due first. A goal holding enough to reach
+ * its target unaided is funded; one still accumulating is in progress, by the
+ * amount it has yet to gather. There is no notion of "where a plan says you
  * should be by now", which is what used to make the answer depend on the day
  * the goal row happened to be created.
  */
@@ -608,14 +615,14 @@ export function goalVerdict(a: GoalAnalysis): GoalVerdict {
     return { kind: "due", short: Math.max(0, p.targetCorpus - attributed) };
   }
   const short = p.fundedCorpus - attributed;
-  // A rupee of float: a goal filled to its need should not read as behind.
-  if (short <= 0.5) return { kind: "on-track" };
-  return { kind: "behind", short };
+  // A rupee of float: a goal filled to its need should not read as unfunded.
+  if (short <= 0.5) return { kind: "funded" };
+  return { kind: "in-progress", short };
 }
 
-/** Verdicts that should not read as a pass. */
+/** Verdicts with money still to find. */
 export function verdictIsShort(v: GoalVerdict): boolean {
-  return v.kind === "behind" || (v.kind === "due" && v.short > 0.5);
+  return v.kind === "in-progress" || (v.kind === "due" && v.short > 0.5);
 }
 
 // ---------------------------------------------------------------------------

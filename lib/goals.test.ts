@@ -104,18 +104,18 @@ test("a goal with no glide path reports no plan, never a grade", () => {
   assert.equal(goalVerdict(analyses[0]).kind, "no-plan");
 });
 
-test("a goal that got everything it needs is on track", () => {
+test("a goal holding enough to reach its target unaided is funded", () => {
   const flat = [assetClass("vault", 0)];
   const g = goal({ id: "g", end_date: "2029-01-01", present_cost: 100_000, inflation_rate: 0 });
   const allocs = [alloc("g", "vault", 0, 100), alloc("g", "vault", 120, 100)];
   const { analyses } = analyzeGoals(
     [g], byGoal(allocs), flat, new Map([["vault", 5_000_000]]), "2026-08-09",
   );
-  assert.equal(goalVerdict(analyses[0]).kind, "on-track");
+  assert.equal(goalVerdict(analyses[0]).kind, "funded");
   assert.ok(analyses[0].coverage >= 1);
 });
 
-test("a goal short of what it needs is behind, by the gap", () => {
+test("a goal still accumulating is in progress, by the gap", () => {
   const flat = [assetClass("vault", 0)];
   const g = goal({ id: "g", end_date: "2029-01-01", present_cost: 100_000, inflation_rate: 0 });
   const allocs = [alloc("g", "vault", 0, 100), alloc("g", "vault", 120, 100)];
@@ -123,8 +123,8 @@ test("a goal short of what it needs is behind, by the gap", () => {
     [g], byGoal(allocs), flat, new Map([["vault", 30_000]]), "2026-08-09",
   );
   const v = goalVerdict(analyses[0]);
-  assert.equal(v.kind, "behind");
-  assert.equal(v.kind === "behind" && Math.round(v.short), 70_000);
+  assert.equal(v.kind, "in-progress");
+  assert.equal(v.kind === "in-progress" && Math.round(v.short), 70_000);
 });
 
 test("the verdict does not depend on when the goal row was created", () => {
@@ -159,8 +159,8 @@ test("the soonest-due goal is funded before a later one gets anything", () => {
   );
   const bySoon = analyses.find((a) => a.goal.id === "soon")!;
   const byLate = analyses.find((a) => a.goal.id === "late")!;
-  assert.equal(goalVerdict(bySoon).kind, "on-track", "the nearer goal is filled first");
-  assert.equal(goalVerdict(byLate).kind, "behind");
+  assert.equal(goalVerdict(bySoon).kind, "funded", "the nearer goal is filled first");
+  assert.equal(goalVerdict(byLate).kind, "in-progress");
   assert.equal(byLate.attributed, 0);
 });
 

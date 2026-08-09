@@ -144,11 +144,11 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           which of them was the answer. */}
       <section className="rounded-xl border border-rule bg-surface p-5">
         <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-          Of what it needs now
+          Funded without investing more
         </div>
         <div
           className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${
-            coveragePct === null ? "" : coveragePct >= 100 ? "text-up" : "text-down"
+            coveragePct !== null && coveragePct >= 100 ? "text-up" : ""
           }`}
         >
           {coveragePct !== null ? `${coveragePct}%` : "—"}
@@ -157,15 +157,15 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
           <div
             className={`h-full rounded-full ${
-              coveragePct !== null && coveragePct >= 100 ? "bg-up" : "bg-down"
+              coveragePct !== null && coveragePct >= 100 ? "bg-up" : "bg-accent"
             }`}
             style={{ width: `${Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, coveragePct ?? 0))}%` }}
           />
         </div>
 
         <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmtINR(attributed)} of {fmtINR(needed)} needed · target {fmtINR(target)} by{" "}
-          {fmtMonthYear(goal.end_date)}
+          {fmtINR(attributed)} of the {fmtINR(needed)} that would reach {fmtINR(target)} on its
+          own by {fmtMonthYear(goal.end_date)}
         </p>
         <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
           {fmtINR(goal.present_cost)} at {fmtMonthYear(goal.created_at.slice(0, 10))} prices ·{" "}
@@ -210,18 +210,14 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
                   <div
-                    className={`h-full rounded-full ${r.shortfall > 0 ? "bg-down" : "bg-up"}`}
+                    className={`h-full rounded-full ${r.shortfall > 0 ? "bg-accent" : "bg-up"}`}
                     style={{
                       width: `${r.need > 0 ? Math.min(100, (r.have / r.need) * 100) : 100}%`,
                     }}
                   />
                 </div>
                 <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-                  {r.shortfall > 0 ? (
-                    <span className="text-down">short {fmtINR(r.shortfall)}</span>
-                  ) : (
-                    "filled"
-                  )}
+                  {r.shortfall > 0 ? <>{fmtINR(r.shortfall)} to go</> : "funded"}
                   {r.sipShare > 0 && <> · invest {fmtINR(r.sipShare)}/mo</>} · pool{" "}
                   {fmtINR(r.poolTotal)}
                 </p>
@@ -263,6 +259,6 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
 const GOAL_BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
   "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
   due: { label: "due now", cls: "bg-warn-soft text-warn" },
-  "on-track": { label: "on track", cls: "bg-up-soft text-up" },
-  behind: { label: "behind", cls: "bg-down-soft text-down" },
+  funded: { label: "fully funded", cls: "bg-up-soft text-up" },
+  "in-progress": { label: "in progress", cls: "bg-surface-2 text-ink-2" },
 };

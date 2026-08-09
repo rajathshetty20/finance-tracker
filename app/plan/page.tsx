@@ -337,8 +337,9 @@ export default async function PlanPage() {
 const BADGE: Record<GoalVerdict["kind"], { label: string; cls: string }> = {
   "no-plan": { label: "no plan", cls: "bg-warn-soft text-warn" },
   due: { label: "due now", cls: "bg-warn-soft text-warn" },
-  "on-track": { label: "on track", cls: "bg-up-soft text-up" },
-  behind: { label: "behind", cls: "bg-down-soft text-down" },
+  funded: { label: "fully funded", cls: "bg-up-soft text-up" },
+  // Neutral, not red: still paying into a goal is the normal state, not a fault.
+  "in-progress": { label: "in progress", cls: "bg-surface-2 text-ink-2" },
 };
 
 function GoalCard({
@@ -353,7 +354,8 @@ function GoalCard({
   const badge = BADGE[v.kind];
 
   const coveragePct = Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, a.coverage * 100));
-  const barTone = v.kind === "behind" ? "bg-down" : v.kind === "due" ? "bg-warn" : "bg-up";
+  const barTone =
+    v.kind === "funded" ? "bg-up" : v.kind === "due" ? "bg-warn" : "bg-accent";
 
   return (
     <div className="rounded-xl border border-rule bg-surface p-4">
@@ -375,7 +377,7 @@ function GoalCard({
 
       <div className="mt-3">
         <div className="flex items-baseline justify-between text-[0.6875rem] text-ink-3">
-          <span>of what it needs now</span>
+          <span>funded without investing more</span>
           <span className="tabular-nums">{Math.round(a.coverage * 100)}%</span>
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
@@ -388,8 +390,16 @@ function GoalCard({
       </p>
 
       <p className="mt-1.5 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-        {fmtINR(attributed)} of {fmtCompact(p.fundedCorpus)} needed · {fmtCompact(p.targetCorpus)} by{" "}
-        {fmtMonthYear(a.goal.end_date)}
+        {/* Exact, not compact: when the two are close both render "₹5.5L" and
+            the line reads "₹5.5L that would coast to ₹5.5L". */}
+        {v.kind === "funded" ? (
+          <>{fmtINR(attributed)} held</>
+        ) : (
+          <>
+            {fmtINR(attributed)} of {fmtINR(p.fundedCorpus)}
+          </>
+        )}{" "}
+        · target {fmtCompact(p.targetCorpus)} by {fmtMonthYear(a.goal.end_date)}
         {monthly > 0 && <> · invest {fmtINR(monthly)}/mo</>}
       </p>
     </div>
@@ -416,9 +426,19 @@ function VerdictLine({ a, v }: { a: GoalAnalysis; v: GoalVerdict }) {
       ) : (
         <>Due now and met.</>
       );
-    case "on-track":
-      return <>Fully funded — left alone, it reaches {fmtCompact(p.targetCorpus)} on time.</>;
-    case "behind":
-      return <>Short {fmtINR(v.short)} of what it needs to get there on its own.</>;
+    case "funded":
+      return (
+        <>
+          Fully funded — left alone it reaches {fmtCompact(p.targetCorpus)} on time, with no
+          further investing.
+        </>
+      );
+    case "in-progress":
+      return (
+        <>
+          Still accumulating — {fmtINR(v.short)} short of the point where it would reach the
+          target on its own.
+        </>
+      );
   }
 }
