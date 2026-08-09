@@ -22,10 +22,12 @@ export const DEMO_TODAY = "2026-08-09";
  */
 export async function appToday(): Promise<string> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return isDemoUser(user) ? DEMO_TODAY : todayISO();
+  // getClaims(), not getUser(): the flag lives in app_metadata, which is
+  // embedded in the JWT and verified locally, while getUser() is a network
+  // round trip to the auth server on every page render — and this one sits
+  // after the page's queries, so it was pure added latency.
+  const { data } = await supabase.auth.getClaims();
+  return isDemoClaims(data?.claims) ? DEMO_TODAY : todayISO();
 }
 
 export const DEMO_WRITE_ERROR =
@@ -40,12 +42,19 @@ export function isDemoUser(
   return user?.app_metadata?.is_demo === true;
 }
 
+/** Same flag, read off verified JWT claims instead of a fetched user. */
+export function isDemoClaims(
+  claims: { app_metadata?: unknown } | null | undefined,
+): boolean {
+  const meta = claims?.app_metadata as Record<string, unknown> | undefined;
+  return meta?.is_demo === true;
+}
+
 // UX guard for server actions: friendly error instead of a raw RLS violation.
 // Not a security boundary — supabase/demo_readonly.sql enforces read-only —
 // so reading the claims off the session (no extra auth round-trip) suffices.
 export async function isDemoWriteBlocked(): Promise<boolean> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  const meta = data?.claims?.app_metadata as Record<string, unknown> | undefined;
-  return meta?.is_demo === true;
+  return isDemoClaims(data?.claims);
 }

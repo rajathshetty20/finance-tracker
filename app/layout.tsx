@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { isDemoUser } from "@/lib/demo";
+import { isDemoClaims } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 import type { Phase } from "@/lib/types";
 import Nav from "./Nav";
@@ -36,14 +36,18 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isDemo = isDemoUser(user);
+  // getClaims() over getUser(): it refreshes the session the same way, then
+  // verifies the JWT signature locally against the project's public key
+  // instead of asking the auth server who this is. The layout only needs to
+  // know whether someone is signed in and whether they are the demo — both
+  // are claims in that token. getUser() was a network round trip on every
+  // single page render.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims ?? null;
+  const isDemo = isDemoClaims(claims);
 
   let currentPhase: Phase | null = null;
-  if (user) {
+  if (claims) {
     const { data } = await supabase
       .from("phases")
       .select("*")
@@ -58,7 +62,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-ground text-ink">
-        {user && (
+        {claims && (
           <header
             className="border-b border-rule bg-surface"
             // Standalone mode draws under the status bar and Dynamic Island.
@@ -115,7 +119,7 @@ export default async function RootLayout({
         <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-5 md:pb-10">
           {children}
         </main>
-        {user && <BottomNav />}
+        {claims && <BottomNav />}
       </body>
     </html>
   );
