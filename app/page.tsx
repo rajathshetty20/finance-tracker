@@ -178,10 +178,11 @@ export default async function DashboardPage() {
   const avgIncome = bases.avgIncome;
   const avgPastExpense = bases.avgExpense;
 
-  // Debt-to-asset ratio (informational, alongside debt pending)
-  const assets_for_ratio = invest_market + cashInHand;
-  const owed_total = debt_pending + Math.abs(cardFloat);
-  const debt_ratio = assets_for_ratio > 0 ? owed_total / assets_for_ratio : null;
+  // A negative cash balance is a cash balance. Card float nets against the
+  // other accounts rather than being reported as debt — "debt" here means
+  // borrowing you took out, which is the only thing you can pay down.
+  const assets_for_ratio = invest_market + cashSum;
+  const debt_ratio = assets_for_ratio > 0 ? debt_pending / assets_for_ratio : null;
 
   const totalEmi = bases.emiTotal;
   const monthlyInvestable = bases.salaryInvestable;
@@ -232,9 +233,9 @@ export default async function DashboardPage() {
   // stopped at expenses, so it read ~17k higher than anything you could invest.
   const avgInvestable = bases.avgInvestable;
 
-  const assets = invest_market + cashInHand;
+  const assets = invest_market + Math.max(0, cashSum);
   // Assets and debt share one scale so the segments are comparable.
-  const barTotal = Math.max(1, assets + owed_total);
+  const barTotal = Math.max(1, assets + debt_pending);
   const balanced = Math.abs(cash_discrepancy) < 0.01;
 
   const nwSeries = buildNetworthSeries({
@@ -276,23 +277,25 @@ export default async function DashboardPage() {
                 read as the headline it sits under. */}
             <div className="mt-4 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
               <span style={{ width: `${(invest_market / barTotal) * 100}%`, background: "var(--cat-1)" }} />
-              <span style={{ width: `${Math.max(0, (cashInHand / barTotal) * 100)}%`, background: "var(--cat-6)" }} />
-              {owed_total > 0 && (
-                <span style={{ width: `${(owed_total / barTotal) * 100}%`, background: "var(--debt)" }} />
+              <span style={{ width: `${Math.max(0, (cashSum / barTotal) * 100)}%`, background: "var(--cat-6)" }} />
+              {debt_pending > 0 && (
+                <span style={{ width: `${(debt_pending / barTotal) * 100}%`, background: "var(--debt)" }} />
               )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]">
               <Key color="var(--cat-1)" value={fmt(invest_market)} name="invested" />
-              <Key color="var(--cat-6)" value={fmt(cashInHand)} name="cash" />
-              {owed_total > 0 && <Key color="var(--debt)" value={`−${fmt(owed_total)}`} name="debt" />}
+              <Key color="var(--cat-6)" value={fmt(cashSum)} name="cash" />
+              {debt_pending > 0 && (
+                <Key color="var(--debt)" value={`−${fmt(debt_pending)}`} name="debt" />
+              )}
             </div>
           </>
         )}
 
         <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmt(invest_market)} invested + {fmt(cashInHand)} cash − {fmt(debt_pending)} loans
-          {cardFloat < 0 && <> − {fmt(Math.abs(cardFloat))} card</>} = {fmt(NW)}
-          {debt_ratio !== null && owed_total > 0 && (
+          {fmt(invest_market)} invested + {fmt(cashSum)} cash − {fmt(debt_pending)} debt ={" "}
+          {fmt(NW)}
+          {debt_ratio !== null && debt_pending > 0 && (
             <span className="ml-2">· debt is {(debt_ratio * 100).toFixed(1)}% of what you hold</span>
           )}
         </p>

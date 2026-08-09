@@ -141,10 +141,12 @@ export default async function HoldingsPage() {
   );
 
   // Identical to Home's headline by construction.
-  const assets = investMarket + cashInHand;
-  const liabilities = debtPending + Math.abs(cardFloat);
+  // A negative cash balance is a cash balance: card float nets against the
+  // other accounts rather than being reported as debt, which here means
+  // borrowing you took out and could pay down.
+  const assets = investMarket + Math.max(0, cashSum);
   const netWorth = investMarket + cashSum - debtPending;
-  const barTotal = Math.max(1, assets + liabilities);
+  const barTotal = Math.max(1, assets + debtPending);
 
   const oldestCash =
     cash.length > 0 ? cash.reduce((m, r) => (r.updated_at < m ? r.updated_at : m), cash[0].updated_at) : null;
@@ -172,23 +174,21 @@ export default async function HoldingsPage() {
           <>
             <div className="mt-4 flex h-2.5 gap-[2px] overflow-hidden rounded-full">
               <span style={{ width: `${seg(investMarket)}%`, background: "var(--cat-1)" }} />
-              <span style={{ width: `${seg(cashInHand)}%`, background: "var(--cat-6)" }} />
-              {liabilities > 0 && (
-                <span style={{ width: `${seg(liabilities)}%`, background: "var(--debt)" }} />
+              <span style={{ width: `${seg(cashSum)}%`, background: "var(--cat-6)" }} />
+              {debtPending > 0 && (
+                <span style={{ width: `${seg(debtPending)}%`, background: "var(--debt)" }} />
               )}
             </div>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.8125rem]">
               <Key color="var(--cat-1)" value={fmtINR(investMarket)} name="invested" />
-              <Key color="var(--cat-6)" value={fmtINR(cashInHand)} name="cash" />
-              {liabilities > 0 && (
-                <Key color="var(--debt)" value={`−${fmtINR(liabilities)}`} name="debt" />
+              <Key color="var(--cat-6)" value={fmtINR(cashSum)} name="cash" />
+              {debtPending > 0 && (
+                <Key color="var(--debt)" value={`−${fmtINR(debtPending)}`} name="debt" />
               )}
             </div>
             <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-              {fmtINR(investMarket)} invested + {fmtINR(cashInHand)} cash −{" "}
-              {fmtINR(debtPending)} loans
-              {cardFloat < 0 && <> − {fmtINR(Math.abs(cardFloat))} card</>} ={" "}
-              {fmtINR(netWorth)}
+              {fmtINR(investMarket)} invested + {fmtINR(cashSum)} cash −{" "}
+              {fmtINR(debtPending)} debt = {fmtINR(netWorth)}
             </p>
           </>
         )}
