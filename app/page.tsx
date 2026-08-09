@@ -273,6 +273,9 @@ export default async function DashboardPage() {
 
         <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
           {fmt(assets)} assets − {fmt(debt_pending)} debt = {fmt(NW)}
+          {debt_ratio !== null && debt_pending > 0 && (
+            <span className="ml-2">· debt is {(debt_ratio * 100).toFixed(1)}% of assets</span>
+          )}
         </p>
 
         {/* The parity check. Two independent routes to the same figure: what
@@ -319,11 +322,12 @@ export default async function DashboardPage() {
             </div>
             <div className="mt-1">
               <FlowRow label="Earned" sub="average month" value={fmt(avgIncome)} />
-              <FlowRow label="Spent" value={`−${fmt(avgPastExpense)}`} pct={avgPastExpense / avgIncome} tone="down" />
-              <FlowRow label="Debt service" sub="EMI" value={`−${fmt(totalEmi)}`} pct={totalEmi / avgIncome} tone="down" />
+              <FlowRow label="Spent" color="var(--down)" value={`−${fmt(avgPastExpense)}`} pct={avgPastExpense / avgIncome} tone="down" />
+              <FlowRow label="Debt service" sub="EMI" color="var(--warn)" value={`−${fmt(totalEmi)}`} pct={totalEmi / avgIncome} tone="down" />
               <FlowRow
                 label="Avg investable"
                 sub="avg income − expenses − EMI"
+                color="var(--up)"
                 value={fmt(avgInvestable)}
                 pct={avgInvestable / avgIncome}
                 tone="keep"
@@ -394,14 +398,6 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="rounded-xl border border-rule bg-surface p-4">
-        <h2 className="text-sm font-medium text-ink-3">Debt</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <Cell label="Outstanding" value={fmt(debt_pending)} tone={debt_pending > 0 ? "down" : undefined} />
-          <Cell label="Of assets" value={debt_ratio === null ? "—" : `${(debt_ratio * 100).toFixed(1)}%`} />
-        </div>
-      </section>
-
       <NetworthChart data={nwSeries} />
     </div>
   );
@@ -423,12 +419,14 @@ function FlowRow({
   value,
   pct,
   tone,
+  color,
 }: {
   label: string;
   sub?: string;
   value: string;
   pct?: number;
   tone?: "down" | "keep";
+  color?: string;
 }) {
   return (
     <div
@@ -436,9 +434,16 @@ function FlowRow({
         tone === "keep" ? "border-t border-rule" : "border-b border-rule-soft"
       }`}
     >
-      <span className={`text-sm ${tone === "keep" ? "font-semibold" : ""}`}>
-        {label}
-        {sub && <span className="block text-[0.6875rem] text-ink-3">{sub}</span>}
+      <span className={`flex flex-col text-sm ${tone === "keep" ? "font-semibold" : ""}`}>
+        <span className="flex items-center gap-2">
+          {color && (
+            <i className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: color }} />
+          )}
+          {label}
+        </span>
+        {sub && (
+          <span className={`text-[0.6875rem] text-ink-3 ${color ? "pl-[18px]" : ""}`}>{sub}</span>
+        )}
       </span>
       <span className="text-right">
         <span

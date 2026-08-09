@@ -2,10 +2,17 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Category, EntryWithJoins, Phase } from "@/lib/types";
 import { todayISO, monthsInRange, currentMonthStartISO, fmtINR } from "@/lib/dates";
+import { cutoffISO, parseRange, rangeDescription } from "@/lib/range";
+import RangeLinks from "../RangeLinks";
 import AddIncomeForm from "./AddIncomeForm";
 import IncomeRow from "./IncomeRow";
 
-export default async function IncomesPage() {
+export default async function IncomesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
+  const range = parseRange((await searchParams).range);
   const supabase = await createClient();
 
   const [{ data: phasesData }, { data: catsData }, { data: entriesData }] = await Promise.all([
@@ -36,10 +43,16 @@ export default async function IncomesPage() {
     );
   }
 
+  // The ledger below is windowed; the per-category summary above is not. That
+  // summary is an average over the phase, so scoping it to the last 30 days
+  // would change what it means, not just how much of it you see.
+  const cutoff = cutoffISO(range, todayISO());
+  const windowed = cutoff ? entries.filter((e) => e.date >= cutoff) : entries;
   const groups = phases.map((p) => ({
     phase: p,
-    rows: entries.filter((e) => e.phase_id === p.id),
+    rows: windowed.filter((e) => e.phase_id === p.id),
   }));
+  const shownCount = groups.reduce((n, g) => n + g.rows.length, 0);
 
   const monthStart = currentMonthStartISO();
   const monthsInPhase = monthsInRange(currentPhase.start_date, todayISO());
@@ -107,9 +120,19 @@ export default async function IncomesPage() {
         </section>
       )}
 
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-medium text-ink-3">
+          Ledger
+          <span className="ml-2 text-xs">
+            {shownCount} entr{shownCount === 1 ? "y" : "ies"} · {rangeDescription(range)}
+          </span>
+        </h2>
+        <RangeLinks active={range} />
+      </div>
+
       {groups.every((g) => g.rows.length === 0) ? (
         <p className="rounded-xl border border-dashed border-rule p-6 text-center text-sm text-ink-3">
-          Nothing logged yet.
+          {cutoff ? "Nothing in this period." : "Nothing logged yet."}
         </p>
       ) : (
         groups.map(({ phase, rows }) =>
