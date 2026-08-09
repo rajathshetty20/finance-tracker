@@ -34,3 +34,16 @@ export function fmtINR(n: number): string {
 export function currentMonthStartISO(): string {
   return todayISO().slice(0, 7) + "-01";
 }
+
+// "2025-03-01" -> "Mar 2025". Phase and goal dates are stored as plain dates,
+// and printing the ISO string raw both reads as machine output and wraps in
+// the middle of the number on a phone.
+export function fmtMonthYear(iso: string): string {
+  const [y, m] = iso.split("-").map(Number);
+  if (!y || !m) return iso;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}

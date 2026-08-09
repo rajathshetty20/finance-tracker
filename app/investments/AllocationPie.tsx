@@ -2,7 +2,6 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { fmtINR } from "@/lib/dates";
-import { Group } from "../ui";
 
 // The validated categorical set, assigned in this fixed order and never
 // cycled. The previous ten-hex rainbow was outside the token system, so it
@@ -83,8 +82,9 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
   });
 
   return (
-    <Group title="Portfolio allocation" meta={fmtCompact(total)}>
-      <p className="text-[0.75rem] text-ink-3">
+    <section className="rounded-xl border border-rule bg-surface p-4">
+      <h2 className="text-sm font-medium text-ink-3">Portfolio allocation</h2>
+      <p className="text-xs text-ink-3">
         By current market value. Inner ring: asset class · outer ring: investment.
       </p>
       <div className="mt-3 grid items-center gap-4 sm:grid-cols-[1fr_240px]">
@@ -176,6 +176,6 @@ export default function AllocationPie({ data }: { data: Datum[] }) {
           })}
         </ul>
       </div>
-    </Group>
+    </section>
   );
 }

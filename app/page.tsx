@@ -12,7 +12,7 @@ import type {
   Phase,
   Entry,
 } from "@/lib/types";
-import { todayISO, monthsInRange, daysInRange, currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
+import { todayISO, monthsInRange, daysInRange, currentMonthStartISO, fmtINR as fmt, fmtMonthYear } from "@/lib/dates";
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
 
@@ -258,7 +258,7 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-medium text-ink-3">Current phase</h2>
         <div className="mt-1">
           <strong>{currentPhase.name}</strong>
-          <span className="ml-2 text-xs text-ink-3">started {currentPhase.start_date}</span>
+          <span className="ml-2 text-xs text-ink-3">started {fmtMonthYear(currentPhase.start_date)}</span>
         </div>
       </section>
 
