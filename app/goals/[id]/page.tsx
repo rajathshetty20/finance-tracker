@@ -9,6 +9,7 @@ import {
   monthsBetween,
   plannedSeries,
   poolByAssetClass,
+  targetCorpus,
   STEP_UP_RATE,
   type GoalVerdict,
 } from "@/lib/goals";
@@ -75,7 +76,8 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       ? "due now"
       : formatMonthsLeft(analysis.projection.monthsRemaining)
     : "—";
-  const target = analysis?.projection.targetCorpus ?? 0;
+  const isActive = goal.status === "active";
+  const target = analysis?.projection.targetCorpus ?? targetCorpus(goal);
   const attributed = analysis?.attributed ?? 0;
   // A 26-year goal legitimately holds a fraction of a percent of its final
   // target. Rounding 0.30% to a bare "0%" says "nothing", which is a different
@@ -135,65 +137,86 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           )}
         </div>
         <p className="text-sm text-ink-3">
-          {fmtMonthYear(goal.end_date)} · {timeLeft}
+          {fmtMonthYear(goal.end_date)}
+          {isActive && <> · {timeLeft}</>}
           {goal.description && <> · {goal.description}</>}
         </p>
       </header>
 
-      {/* Same shape as every other headline in the app: the number, the bar,
-          then the arithmetic. Six equal stat tiles gave the reader no idea
-          which of them was the answer. */}
-      <section className="rounded-xl border border-rule bg-surface p-5">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
-          Self-funded
-        </div>
-        <div
-          className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${
-            coveragePct !== null && coveragePct >= 100 ? "text-up" : ""
-          }`}
-        >
-          {coveragePct !== null ? `${coveragePct}%` : "—"}
-        </div>
-
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
+      {/* An achieved or archived goal does not claim from the pool, so it has
+          no attribution, no self-funding measure and no required SIP. It used
+          to fall through to the active layout and render "₹0 of the ₹0 that
+          would reach ₹0" — every figure a placeholder. */}
+      {isActive ? (
+        <section className="rounded-xl border border-rule bg-surface p-5">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+            Self-funded
+          </div>
           <div
-            className={`h-full rounded-full ${
-              coveragePct !== null && coveragePct >= 100 ? "bg-up" : "bg-accent"
+            className={`mt-1 text-[2.2rem] font-semibold leading-none tabular-nums ${
+              coveragePct !== null && coveragePct >= 100 ? "text-up" : ""
             }`}
-            style={{ width: `${Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, coveragePct ?? 0))}%` }}
-          />
-        </div>
+          >
+            {coveragePct !== null ? `${coveragePct}%` : "—"}
+          </div>
 
-        <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmtINR(attributed)} of the {fmtINR(needed)} that would reach {fmtINR(target)} on its
-          own by {fmtMonthYear(goal.end_date)}
-        </p>
-        <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmtINR(goal.present_cost)} at {fmtMonthYear(goal.created_at.slice(0, 10))} prices ·{" "}
-          {Number(goal.inflation_rate)}% inflation · {fundedPct}% of the final target
-        </p>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
+            <div
+              className={`h-full rounded-full ${
+                coveragePct !== null && coveragePct >= 100 ? "bg-up" : "bg-accent"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(attributed > 0 ? 1.5 : 0, coveragePct ?? 0))}%` }}
+            />
+          </div>
 
-        {analysis && Math.round(analysis.requiredMonthly) > 0 && (
-          <p className="mt-3 border-t border-rule-soft pt-3 text-[0.8125rem] text-ink-2">
-            Invest{" "}
-            <span className="font-semibold tabular-nums text-ink">
-              {fmtINR(analysis.requiredMonthly)}
-            </span>{" "}
-            a month, starting now, and this reaches {fmtINR(target)} by{" "}
-            {fmtMonthYear(goal.end_date)}.
-            {" "}
-            {/* "to close it" hid three assumptions: the starting corpus, the
-                step-up, and the returns doing the rest of the work. */}
-            <span className="text-ink-3">
-              That is this year&apos;s figure — it assumes you raise it{" "}
-              {Math.round(STEP_UP_RATE * 100)}% each year, and that the{" "}
-              {fmtINR(attributed)} already there grows along the glide path below.
-            </span>
+          <p className="mt-2 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+            {fmtINR(attributed)} of the {fmtINR(needed)} that would reach {fmtINR(target)} on its
+            own by {fmtMonthYear(goal.end_date)}
           </p>
-        )}
-      </section>
+          <p className="mt-1 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+            {fmtINR(goal.present_cost)} at {fmtMonthYear(goal.created_at.slice(0, 10))} prices ·{" "}
+            {Number(goal.inflation_rate)}% inflation · {fundedPct}% of the final target
+          </p>
 
-      {!analysis?.projection.hasPlan && (
+          {analysis && Math.round(analysis.requiredMonthly) > 0 && (
+            <p className="mt-3 border-t border-rule-soft pt-3 text-[0.8125rem] text-ink-2">
+              Invest{" "}
+              <span className="font-semibold tabular-nums text-ink">
+                {fmtINR(analysis.requiredMonthly)}
+              </span>{" "}
+              a month, starting now, and this reaches {fmtINR(target)} by{" "}
+              {fmtMonthYear(goal.end_date)}.{" "}
+              <span className="text-ink-3">
+                That is this year&apos;s figure — it assumes you raise it{" "}
+                {Math.round(STEP_UP_RATE * 100)}% each year, and that the {fmtINR(attributed)}{" "}
+                already there grows along the glide path below.
+              </span>
+            </p>
+          )}
+        </section>
+      ) : (
+        <section className="rounded-xl border border-rule bg-surface p-5">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+            {goal.status === "achieved" ? "Achieved" : "Archived"}
+          </div>
+          <div className="mt-1 text-[2.2rem] font-semibold leading-none tabular-nums">
+            {fmtINR(target)}
+          </div>
+          <p className="mt-1 text-[0.8125rem] text-ink-3">
+            what it was aiming for by {fmtMonthYear(goal.end_date)}
+          </p>
+          <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
+            {fmtINR(goal.present_cost)} at {fmtMonthYear(goal.created_at.slice(0, 10))} prices ·{" "}
+            {Number(goal.inflation_rate)}% inflation
+          </p>
+          <p className="mt-3 border-t border-rule-soft pt-3 text-[0.8125rem] text-ink-2">
+            {goal.status === "achieved" ? "Achieved" : "Archived"} goals no longer claim from the
+            investment pool, so nothing here is attributed to them.
+          </p>
+        </section>
+      )}
+
+      {isActive && !analysis?.projection.hasPlan && (
         <p className="rounded-xl border border-dashed border-warn bg-warn-soft p-3 text-[0.8125rem] text-ink-2">
           No glide path yet — set one below.
         </p>

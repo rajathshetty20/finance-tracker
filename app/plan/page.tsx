@@ -18,6 +18,7 @@ import {
   goalVerdict,
   planSummary,
   poolByAssetClass,
+  targetCorpus,
   STEP_UP_RATE,
   type GoalAnalysis,
   type GoalVerdict,
@@ -305,11 +306,16 @@ export default async function PlanPage() {
               <li key={g.id}>
                 <Link
                   href={`/goals/${g.id}`}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-surface-2"
+                  className="flex items-baseline justify-between gap-3 px-4 py-3 hover:bg-surface-2"
                 >
-                  <span className="text-sm text-ink-2">{g.name}</span>
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
-                    {g.status}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-ink-2">{g.name}</span>
+                    <span className="block text-[0.6875rem] text-ink-3">
+                      {g.status} · {fmtMonthYear(g.end_date)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[0.8125rem] tabular-nums text-ink-3">
+                    {fmtCompact(targetCorpus(g))}
                   </span>
                 </Link>
               </li>

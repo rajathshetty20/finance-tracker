@@ -506,6 +506,18 @@ begin
     (u_id, g_id, ac_fi, 24, 60),
     (u_id, g_id, ac_fi, 0, 100);
 
+  -- An achieved goal. Without one the demo never showed the achieved/archived
+  -- state, which is how it shipped rendering "₹0 of the ₹0 that would reach ₹0"
+  -- for every goal that was finished.
+  insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, status, created_at)
+  values (u_id, 'Phone upgrade', 'Replaced the cracked one',
+          (date_trunc('month', demo_today) - interval '4 months')::date, 90000, 6, 'achieved',
+          (demo_today - make_interval(months => 20))::timestamptz)
+  returning id into g_id;
+  insert into public.goal_allocations (user_id, goal_id, asset_class_id, months_before_end, target_pct) values
+    (u_id, g_id, ac_fi, 0, 100),
+    (u_id, g_id, ac_fi, 16, 100);
+
   -- Two months old, and deliberately sharing Europe trip's date: the demo had
   -- no goal young enough to show "no history yet" and no tied due dates.
   insert into public.goals (user_id, name, description, end_date, present_cost, inflation_rate, created_at)

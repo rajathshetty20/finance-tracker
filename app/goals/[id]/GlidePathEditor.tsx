@@ -441,10 +441,12 @@ export default function GlidePathEditor({
                     const yTop = yForCum(cum[k]);
                     const yBottom = yForCum(k > 0 ? cum[k - 1] : 0);
                     if (yBottom - yTop < 16) return null;
+                    const atStart = x <= PAD.left + 0.5;
+                    const atEnd = x >= w - PAD.right - 0.5;
                     return (
                       <text
                         key={`v-${id}`}
-                        x={x}
+                        x={atStart ? x + 2 : atEnd ? x - 2 : x}
                         y={(yTop + yBottom) / 2 + 3.5}
                         fontSize={10}
                         fontWeight={600}
@@ -452,7 +454,7 @@ export default function GlidePathEditor({
                         stroke="#ffffff"
                         strokeWidth={2.5}
                         paintOrder="stroke"
-                        textAnchor="middle"
+                        textAnchor={atStart ? "start" : atEnd ? "end" : "middle"}
                         style={{ pointerEvents: "none" }}
                       >
                         {Math.round(m.pct[k])}%
@@ -545,7 +547,7 @@ export default function GlidePathEditor({
                       value={Math.round(m.pct[i])}
                       aria-label={`${nameOf(id)} at ${yearLabel(m.years)} before the goal date`}
                       onChange={(e) => setPct(m.id, i, Number(e.target.value))}
-                      className="w-12 shrink-0 rounded-md border border-rule bg-surface px-1.5 py-1 text-right tabular-nums outline-none focus:border-ink"
+                      className="w-14 shrink-0 rounded-md border border-rule bg-surface px-2 py-1 text-right tabular-nums outline-none focus:border-ink"
                     />
                   </label>
                 ))}
