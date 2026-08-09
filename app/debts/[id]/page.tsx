@@ -61,7 +61,7 @@ export default async function DebtDetailPage({ params }: { params: Promise<{ id:
           ← Holdings
         </Link>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold leading-snug">{debt.description}</h1>
+          <h1 className="text-2xl font-semibold leading-snug">{debt.description}</h1>
           {!isOpen && (
             <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-2">
               closed {debt.closed_on ? fmtDate(debt.closed_on) : ""}
