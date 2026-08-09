@@ -290,8 +290,8 @@ export default async function DashboardPage() {
         )}
 
         <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-          {fmt(invest_market)} invested + {fmt(cashInHand)} cash − {fmt(owed_total)} debt ={" "}
-          {fmt(NW)}
+          {fmt(invest_market)} invested + {fmt(cashInHand)} cash − {fmt(debt_pending)} loans
+          {cardFloat < 0 && <> − {fmt(Math.abs(cardFloat))} card</>} = {fmt(NW)}
           {debt_ratio !== null && owed_total > 0 && (
             <span className="ml-2">· debt is {(debt_ratio * 100).toFixed(1)}% of what you hold</span>
           )}

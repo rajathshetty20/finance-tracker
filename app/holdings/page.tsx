@@ -185,8 +185,10 @@ export default async function HoldingsPage() {
               )}
             </div>
             <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
-              {fmtINR(investMarket)} invested + {fmtINR(cashInHand)} cash − {fmtINR(liabilities)}{" "}
-              debt = {fmtINR(netWorth)}
+              {fmtINR(investMarket)} invested + {fmtINR(cashInHand)} cash −{" "}
+              {fmtINR(debtPending)} loans
+              {cardFloat < 0 && <> − {fmtINR(Math.abs(cardFloat))} card</>} ={" "}
+              {fmtINR(netWorth)}
             </p>
           </>
         )}
