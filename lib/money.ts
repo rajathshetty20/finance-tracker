@@ -3,8 +3,9 @@
 // This module exists because "investable" had four definitions living in three
 // files: an average over completed months, the latest salary minus that same
 // average, and a single month's earned − spent. They differ by tens of
-// thousands of rupees and were all printed under the same word. Every figure
-// here carries the base it was computed from, and every screen names it.
+// thousands of rupees and were all printed under the same word. There is now
+// exactly one, `investable`, and every figure here carries the base it was
+// computed from.
 
 import type { Category, Debt, DebtPayment, Entry, InvestmentEntry } from "./types";
 
@@ -109,7 +110,16 @@ export type MonthRow = {
   invested: number;
   /** earned − spent. */
   kept: number;
-  /** earned − spent − emiPaid. What that month could have sent to investments. */
+  /**
+   * earned − spent − emiPaid. What that month could have sent to investments.
+   *
+   * This one DOES net off the EMI, unlike the forward-looking `investable`
+   * below. It is a record of a month that has happened, reconciled against
+   * what was actually invested (`gap`), and the instalment really did leave the
+   * bank that month. The forward figure answers a different question — what a
+   * standing SIP can commit to — where the instalment is offset by the locked
+   * corpus it releases.
+   */
   couldInvest: number;
   /**
    * invested − couldInvest, or null when the month spent more than it earned.
@@ -208,10 +218,18 @@ export type CashflowBases = {
   inhandSalary: number | null;
   inhandSalaryDate: string | null;
 
-  /** avgIncome − avgExpense − emiTotal. A typical month, all income included. */
-  avgInvestable: number | null;
-  /** inhandSalary − avgExpense − emiTotal. What a standing SIP can commit to. */
-  salaryInvestable: number | null;
+  /**
+   * inhandSalary − avgExpense. What a standing SIP can commit to, and the ONLY
+   * investable figure — there used to be a second one over average income,
+   * printed a click apart from this under the same word.
+   *
+   * The EMI is deliberately not subtracted. Debt is reserved off the corpus as
+   * a lock (lib/lock.ts), and since `total_payable` already carries the
+   * interest, paying an instalment releases exactly its own value of locked
+   * corpus back to the goals. Charging it to income as well would count the
+   * same rupees against the plan twice.
+   */
+  investable: number | null;
 };
 
 export function cashflowBases({
@@ -306,9 +324,7 @@ export function cashflowBases({
     emiTotal,
     inhandSalary,
     inhandSalaryDate,
-    avgInvestable: hasHistory ? avgIncome - avgExpense - emiTotal : null,
-    salaryInvestable:
-      hasHistory && inhandSalary !== null ? inhandSalary - avgExpense - emiTotal : null,
+    investable: hasHistory && inhandSalary !== null ? inhandSalary - avgExpense : null,
   };
 }
 

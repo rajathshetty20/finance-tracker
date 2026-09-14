@@ -81,12 +81,19 @@ create index if not exists incomes_user_phase_date
 -- Controlled vocabulary for what an investment IS (equity, fixed income, ...),
 -- carrying the appreciation assumption used by goal projections.
 -- expected_return is an annual % (e.g. 12 = 12% p.a.), not a decimal.
+--
+-- lock_weight is this class's share of locked funds — corpus reserved off the
+-- top, before goals claim anything (see lib/lock.ts). A WEIGHT, not a percent:
+-- classes are edited one row at a time, so a sum-to-100 rule would reject every
+-- intermediate state. Shares are normalised at read time, so 60/40 and 6/4 are
+-- the same split. All zero means "spread it pro-rata over what you hold".
 -- ============================================================
 create table if not exists public.asset_classes (
   id               uuid primary key default gen_random_uuid(),
   user_id          uuid not null references auth.users on delete cascade,
   name             text not null,
   expected_return  numeric not null default 0,
+  lock_weight      numeric not null default 0 check (lock_weight >= 0),
   created_at       timestamptz not null default now(),
   unique (user_id, name)
 );

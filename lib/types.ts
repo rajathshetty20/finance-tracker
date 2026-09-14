@@ -73,6 +73,8 @@ export type AssetClass = {
   user_id: string;
   name: string;
   expected_return: number; // annual %, e.g. 12 = 12% p.a.
+  /** Share of locked funds drawn from this class. A weight, normalised at read time. */
+  lock_weight: number;
   created_at: string;
 };
 

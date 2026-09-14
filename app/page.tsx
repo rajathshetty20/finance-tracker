@@ -17,8 +17,10 @@ import type {
 } from "@/lib/types";
 import { analyzeGoals, marketValueOf, planSummary, poolByAssetClass } from "@/lib/goals";
 import { cashflowBases } from "@/lib/money";
+import { lockFunds, outstandingDebt } from "@/lib/lock";
 import { appToday } from "@/lib/demo";
-import { currentMonthStartISO, fmtINR as fmt } from "@/lib/dates";
+import { currentMonthStartISO, fmtINR as fmt, fmtMonthYear } from "@/lib/dates";
+import { fmtMonthKey } from "@/lib/money";
 import { assetClassColor } from "./ui";
 import NetworthChart from "./NetworthChart";
 import { buildNetworthSeries } from "@/lib/networthSeries";
@@ -129,10 +131,7 @@ export default async function DashboardPage() {
   for (const p of payments) paidBy.set(p.debt_id, (paidBy.get(p.debt_id) ?? 0) + Number(p.amount));
 
   const openDebts = debts.filter((d) => d.status === "open");
-  const debt_pending = openDebts.reduce(
-    (a, d) => a + (Number(d.total_payable) - (paidBy.get(d.id) ?? 0)),
-    0,
-  );
+  const debt_pending = outstandingDebt(debts, payments);
   const interest_commit = openDebts.reduce(
     (a, d) => a + (Number(d.total_payable) - Number(d.principal)),
     0,
@@ -165,8 +164,6 @@ export default async function DashboardPage() {
     monthStartISO: monthStart,
   });
   const months_for_avg = bases.completedMonths;
-  const showAverages = bases.hasHistory;
-  const avgIncome = bases.avgIncome;
   const avgPastExpense = bases.avgExpense;
 
   // A negative cash balance is a cash balance. Card float nets against the
@@ -175,8 +172,13 @@ export default async function DashboardPage() {
   const assets_for_ratio = invest_market + cashSum;
   const debt_ratio = assets_for_ratio > 0 ? debt_pending / assets_for_ratio : null;
 
-  const totalEmi = bases.emiTotal;
-  const monthlyInvestable = bases.salaryInvestable;
+  const monthlyInvestable = bases.investable;
+  const salary = bases.inhandSalary;
+  const salaryDate = bases.inhandSalaryDate;
+  // avgExpense decides the verdict, and one laptop-and-phone month moves it —
+  // lib/money.ts computes the outlier for exactly this reason, so say it here
+  // rather than letting a single purchase flip the answer silently.
+  const outlier = bases.outlierMonth;
 
 
 
@@ -190,33 +192,30 @@ export default async function DashboardPage() {
     if (arr) arr.push(a);
     else allocByGoal.set(a.goal_id, [a]);
   }
-  const pool = poolByAssetClass(invs, entriesByInv);
+  const heldByClass = poolByAssetClass(invs, entriesByInv);
+  const lock = lockFunds(heldByClass, debt_pending, assetClasses);
+  const pool = lock.available;
   const { analyses } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today);
   const goalsRequired = planSummary(analyses).requiredMonthly;
-  // The plan is funded by a standing SIP out of salary, not out of a trailing
-  // average that is dragged down by an older pay level.
-  // Round both operands BEFORE subtracting, as /plan does. Subtracting raw
-  // floats and rounding the result made this card disagree with the two tiles
-  // printed directly above it, and with /plan, by ₹1.
-  const headroom =
-    monthlyInvestable !== null && analyses.length > 0
-      ? Math.round(monthlyInvestable) - Math.round(goalsRequired)
-      : null;
+  // Round both operands BEFORE subtracting, as /plan does: subtracting raw
+  // floats and rounding the result left this ₹1 off the rows above it.
+  const spare =
+    monthlyInvestable === null
+      ? null
+      : Math.round(monthlyInvestable) - Math.round(goalsRequired);
+  const hasGoals = analyses.length > 0;
+  const showGoalsRow = hasGoals && Math.round(goalsRequired) > 0;
+  const barScale = Math.max(salary ?? 0, avgPastExpense + (showGoalsRow ? goalsRequired : 0), 1);
 
   // Portfolio mix, ranked. Replaces the nested two-ring donut, which needed a
   // legend repeating every percentage in text to be readable at all.
   const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
   const classOrder = assetClasses.map((c) => c.id);
-  const mix = [...pool.entries()]
+  const mix = [...heldByClass.entries()]
     .map(([id, value]) => ({ id, name: classNameById.get(id) ?? "—", value }))
     .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value);
   const mixTotal = mix.reduce((a, r) => a + r.value, 0);
-
-  // Every outflow subtracted in order. "Avg investable" is what a typical month
-  // actually leaves once debt service is taken out — the old "avg savings"
-  // stopped at expenses, so it read ~17k higher than anything you could invest.
-  const avgInvestable = bases.avgInvestable;
 
   const assets = invest_market + Math.max(0, cashSum);
   // Assets and debt share one scale so the segments are comparable.
@@ -325,78 +324,109 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {/* One month, subtracted in order. */}
-      <section className="rounded-xl border border-rule bg-surface p-4">
+      {/* The month, subtracted in order. The answer leads and the chain
+          derives it, matching /plan — the merge that produced this section
+          first buried the verdict in its own last row. */}
+      <section className="rounded-xl border border-rule bg-surface p-5">
         <h2 className="text-sm font-medium">
-          A typical month
-          {!showAverages && <span className="ml-2 text-xs">(needs a completed month)</span>}
+          {hasGoals ? "Can you fund the plan?" : "What's left each month"}
         </h2>
-        {showAverages && (
-          <p className="text-xs text-ink-3">
-            Averaged over {months_for_avg} completed month{months_for_avg === 1 ? "" : "s"}.
-            Percentages are shares of what you earn.
-          </p>
-        )}
-        {showAverages && avgInvestable !== null ? (
+        {monthlyInvestable !== null && salary !== null && salary > 0 ? (
           <>
-            <div className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full bg-surface-2">
-              <span style={{ width: `${(avgPastExpense / avgIncome) * 100}%`, background: "var(--down)" }} />
-              <span style={{ width: `${(totalEmi / avgIncome) * 100}%`, background: "var(--warn)" }} />
-              <span style={{ width: `${Math.max(0, avgInvestable / avgIncome) * 100}%`, background: "var(--up)" }} />
+            <div className="mt-3 text-[11px] font-medium uppercase tracking-wider text-ink-3">
+              {!hasGoals ? "Investable each month" : spare! >= 0 ? "Spare each month" : "Short each month"}
             </div>
-            <div className="mt-1">
-              <FlowRow label="Earned" sub="all income" value={fmt(avgIncome)} />
-              <FlowRow label="Spent" color="var(--down)" value={`−${fmt(avgPastExpense)}`} pct={avgPastExpense / avgIncome} tone="down" />
-              <FlowRow label="Debt service" sub="EMI" color="var(--warn)" value={`−${fmt(totalEmi)}`} pct={totalEmi / avgIncome} tone="down" />
+            <div
+              className={`mt-1 text-[2rem] font-semibold leading-none tabular-nums ${
+                !hasGoals ? "" : spare! >= 0 ? "text-up" : "text-down"
+              }`}
+            >
+              {fmt(Math.abs(spare!))}
+            </div>
+            <p className="mt-1 text-[0.8125rem] text-ink-3">
+              {!hasGoals
+                ? "No active goals to fund yet."
+                : spare! >= 0
+                  ? "You can fund the plan."
+                  : "You cannot fund the plan as it stands."}
+            </p>
+
+            {/* Scaled to whatever is larger, salary or its claims, so an
+                overspend runs past the salary mark instead of being silently
+                shrunk to fit. The empty track is what is left over. */}
+            <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
+              <div className="flex h-full gap-[2px]">
+                <span
+                  className="shrink-0"
+                  style={{ width: `${(avgPastExpense / barScale) * 100}%`, background: "var(--expense)" }}
+                />
+                {showGoalsRow && (
+                  <span
+                    className="shrink-0"
+                    style={{ width: `${(goalsRequired / barScale) * 100}%`, background: "var(--goal)" }}
+                  />
+                )}
+              </div>
+              {spare! < 0 && (
+                <span
+                  className="absolute inset-y-0 w-px bg-ink"
+                  style={{ left: `${(salary / barScale) * 100}%` }}
+                />
+              )}
+            </div>
+
+            <div className="mt-2 divide-y divide-rule-soft">
               <FlowRow
-                label="Avg investable"
-                sub="avg income − expenses − EMI"
-                color="var(--up)"
-                value={fmt(avgInvestable)}
-                pct={avgInvestable / avgIncome}
-                tone="keep"
+                label="In-hand salary"
+                sub={salaryDate ? `latest, ${fmtMonthYear(salaryDate)}` : undefined}
+                value={fmt(salary)}
               />
+              <FlowRow
+                label="Typical spending"
+                sub={
+                  outlier
+                    ? `avg of ${months_for_avg} months — ${fmtMonthKey(outlier.month)} lifts it by ${fmt(outlier.liftsAverageBy)}`
+                    : `avg of ${months_for_avg} completed month${months_for_avg === 1 ? "" : "s"}`
+                }
+                color="var(--expense)"
+                value={`−${fmt(avgPastExpense)}`}
+                tone="down"
+              />
+              {showGoalsRow && (
+                <FlowRow
+                  label="Goals need"
+                  sub={`${analyses.length} active goal${analyses.length === 1 ? "" : "s"}`}
+                  color="var(--goal)"
+                  value={`−${fmt(goalsRequired)}`}
+                  tone="down"
+                />
+              )}
             </div>
+
+            {hasGoals && spare! < 0 && (
+              <p className="mt-3 text-xs text-ink-3">
+                <Link href="/plan" className="underline">Review the plan</Link> — stretch a date,
+                cut a target, or accept a later finish.
+              </p>
+            )}
           </>
         ) : (
           <p className="mt-2 text-sm text-ink-3">
-            Log a full month and this fills in.
-          </p>
-        )}
-      </section>
-
-      {/* Required vs available — one subtraction across two pages that the app
-          has never actually performed. */}
-      {headroom !== null && monthlyInvestable !== null && (
-        <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium">Can you fund the plan?</h2>
-          <p className="text-xs text-ink-3">Against salary, not the average above.</p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Cell label="Goals need" value={fmt(goalsRequired)} />
-            <Cell label="Salary investable" value={fmt(monthlyInvestable)} sub="in-hand − expenses − EMI" />
-          </div>
-          <div
-            className={`mt-3 rounded-lg border p-3 text-sm ${
-              headroom >= 0 ? "border-up/30 bg-up/[0.07]" : "border-down/30 bg-down/[0.07]"
-            }`}
-          >
-            {headroom >= 0 ? (
+            {!bases.hasHistory ? (
               <>
-                Yes — <span className="font-semibold tabular-nums text-up">{fmt(headroom)}</span> to
-                spare each month from salary, across {analyses.length} active goal
-                {analyses.length === 1 ? "" : "s"}.
+                Log a full month of income and spending in{" "}
+                <Link href="/cashflow" className="underline">Cashflow</Link> and this fills in.
               </>
             ) : (
               <>
-                Short by{" "}
-                <span className="font-semibold tabular-nums text-down">{fmt(Math.abs(headroom))}</span>{" "}
-                a month across {analyses.length} active goal{analyses.length === 1 ? "" : "s"}.{" "}
-                <Link href="/plan" className="underline">Review the plan</Link>.
+                No income yet in a category named &ldquo;Salary&rdquo; — this section reads your
+                standing pay from it, and ignores bonus and freelance on purpose. Add or rename one
+                in <Link href="/settings" className="underline">Settings</Link>.
               </>
             )}
-          </div>
-        </section>
-      )}
+          </p>
+        )}
+      </section>
 
       {mix.length > 0 && (
         <section className="rounded-xl border border-rule bg-surface p-4">
@@ -457,61 +487,32 @@ function FlowRow({
   label,
   sub,
   value,
-  pct,
   tone,
   color,
 }: {
   label: string;
   sub?: string;
   value: string;
-  pct?: number;
-  tone?: "down" | "keep";
+  tone?: "down";
   color?: string;
 }) {
   return (
-    <div
-      className={`grid grid-cols-[1fr_auto] items-center gap-3 py-2 ${
-        tone === "keep" ? "border-t border-rule" : "border-b border-rule-soft"
-      }`}
-    >
-      <span className={`flex flex-col text-sm ${tone === "keep" ? "font-semibold" : ""}`}>
+    <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-2">
+      <span className="flex flex-col text-sm">
         <span className="flex items-center gap-2">
-          {color && (
-            <i className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: color }} />
-          )}
+          {/* Rows not drawn on the bar still reserve the swatch, so the chain
+              starts and ends on one left edge. */}
+          <i
+            className="h-2.5 w-2.5 shrink-0 rounded-sm"
+            style={color ? { background: color } : undefined}
+          />
           {label}
         </span>
-        {sub && (
-          <span className={`text-[0.6875rem] text-ink-3 ${color ? "pl-[18px]" : ""}`}>{sub}</span>
-        )}
+        {sub && <span className="pl-[18px] text-[0.6875rem] text-ink-3">{sub}</span>}
       </span>
-      <span className="text-right">
-        <span
-          className={`block font-semibold tabular-nums ${
-            tone === "down" ? "text-down" : tone === "keep" ? "text-up" : ""
-          }`}
-        >
-          {value}
-        </span>
-        {pct !== undefined && (
-          <span className="block text-[0.6875rem] tabular-nums text-ink-3">
-            {(pct * 100).toFixed(1)}%
-          </span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-function Cell({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "down" }) {
-  return (
-    <div className="rounded-lg border border-rule p-3">
-      <div className="text-[0.6875rem] font-medium uppercase tracking-wide text-ink-3">{label}</div>
-      <div className={`mt-1 text-lg font-semibold tabular-nums ${tone === "down" ? "text-down" : ""}`}>
+      <span className={`text-right font-semibold tabular-nums ${tone === "down" ? "text-down" : ""}`}>
         {value}
-      </div>
-      {sub && <div className="mt-0.5 text-[0.6875rem] text-ink-3">{sub}</div>}
+      </span>
     </div>
   );
 }
-

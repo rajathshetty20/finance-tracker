@@ -25,12 +25,13 @@ import {
   type GoalVerdict,
 } from "@/lib/goals";
 import { cashflowBases } from "@/lib/money";
+import { lockFunds, outstandingDebt } from "@/lib/lock";
 import { appToday } from "@/lib/demo";
 import { currentMonthStartISO, fmtINR, fmtMonthYear } from "@/lib/dates";
 import Disclose from "../Disclose";
 import CreateGoalForm from "../goals/CreateGoalForm";
 import AssetClassesEditor from "../goals/AssetClassesEditor";
-import { GOAL_VERDICT_STYLE } from "@/app/ui";
+import { GOAL_VERDICT_STYLE, assetClassColor } from "@/app/ui";
 
 function fmtCompact(n: number): string {
   const a = Math.abs(n);
@@ -86,7 +87,14 @@ export default async function PlanPage() {
     allocByGoal.set(a.goal_id, arr);
   }
 
-  const pool = poolByAssetClass(invs, entriesByInv);
+  // Locked funds come off the top, so the waterfall only ever distributes
+  // corpus that is genuinely free. See lib/lock.ts for why the EMI is then not
+  // also netted off investable income.
+  const debts = (debtsData ?? []) as Debt[];
+  const payments = (paymentsData ?? []) as DebtPayment[];
+  const heldByClass = poolByAssetClass(invs, entriesByInv);
+  const lock = lockFunds(heldByClass, outstandingDebt(debts, payments), assetClasses);
+  const pool = lock.available;
   const { analyses, surplusByClass } = analyzeGoals(goals, allocByGoal, assetClasses, pool, today);
   const summary = planSummary(analyses);
   const classNameById = new Map(assetClasses.map((c) => [c.id, c.name]));
@@ -102,8 +110,8 @@ export default async function PlanPage() {
     bases = cashflowBases({
       incomes: (incData ?? []) as Entry[],
       expenses: (expData ?? []) as Entry[],
-      openDebts: ((debtsData ?? []) as Debt[]).filter((d) => d.status === "open"),
-      payments: (paymentsData ?? []) as DebtPayment[],
+      openDebts: debts.filter((d) => d.status === "open"),
+      payments,
       categories: (catsData ?? []) as Category[],
       phaseStartISO: currentPhase.start_date,
       todayISO: today,
@@ -114,7 +122,7 @@ export default async function PlanPage() {
   // Round ONCE, then do the arithmetic on the rounded figures, so the numbers
   // printed on this page subtract to the difference also printed on this page.
   // Independently rounding each of five floats left the shown values ₹1 apart.
-  const available = bases?.salaryInvestable == null ? null : Math.round(bases.salaryInvestable);
+  const available = bases?.investable == null ? null : Math.round(bases.investable);
   const required = Math.round(summary.requiredMonthly);
   const headroom = available !== null ? available - required : null;
 
@@ -136,6 +144,19 @@ export default async function PlanPage() {
     }))
     .sort((x, y) => y.amt - x.amt);
   const unclaimedTotal = unclaimed.reduce((s, r) => s + r.amt, 0);
+
+  const openDebtCount = debts.filter((d) => d.status === "open").length;
+  const weightsSet = assetClasses.some((c) => Number(c.lock_weight) > 0);
+  const classOrder = assetClasses.map((c) => c.id);
+  const lockedRows = [...lock.lockedByClass.entries()]
+    .filter(([, amt]) => amt > 0.5)
+    .map(([id, amt]) => ({
+      id,
+      name: classNameById.get(id) ?? "—",
+      amt,
+      share: lock.amount > 0 ? amt / lock.amount : 0,
+    }))
+    .sort((x, y) => y.amt - x.amt);
 
   const byDueDate = [...analyses].sort(
     (a, b) => a.projection.monthsRemaining - b.projection.monthsRemaining,
@@ -184,7 +205,7 @@ export default async function PlanPage() {
           {available !== null && headroom !== null && bases ? (
             <>
               <p className="mt-3 font-mono text-[0.6875rem] leading-relaxed tabular-nums text-ink-3">
-                {fmtINR(available)} salary investable − {fmtINR(required)} the plan needs ={" "}
+                {fmtINR(available)} investable − {fmtINR(required)} the plan needs ={" "}
                 {headroom >= 0 ? "+" : "−"}
                 {fmtINR(Math.abs(headroom))}
               </p>
@@ -193,6 +214,49 @@ export default async function PlanPage() {
             <p className="mt-3 text-sm text-ink-3">
               Log a completed month of income and spending and this page can say whether the plan is
               affordable.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ── Locked before anything is claimed ────────────────────────────── */}
+      {lock.amount > 0 && (
+        <section className="rounded-xl border border-rule bg-surface p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-medium">Locked funds</h2>
+            <span className="tabular-nums text-sm font-semibold">{fmtINR(lock.amount)}</span>
+          </div>
+          <p className="mt-0.5 text-xs text-ink-3">
+            Debt repayment across {openDebtCount} open debt{openDebtCount === 1 ? "" : "s"}, held
+            back before any goal claims from the pool.
+          </p>
+
+          {lockedRows.length > 0 && (
+            <ul className="mt-3 space-y-1">
+              {lockedRows.map((r) => (
+                <li key={r.id} className="flex items-center gap-2 text-xs">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: assetClassColor(r.id, classOrder) }}
+                  />
+                  <span className="flex-1 truncate">{r.name}</span>
+                  <span className="tabular-nums text-ink-3">{Math.round(r.share * 100)}%</span>
+                  <span className="w-20 text-right tabular-nums">{fmtINR(r.amt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="mt-2 text-xs text-ink-3">
+            {weightsSet
+              ? "Split by the lock shares set under Asset classes below."
+              : "Split pro-rata across what you hold. Set lock shares under Asset classes below to choose where it comes from."}
+          </p>
+
+          {lock.unbacked > 0.5 && (
+            <p className="mt-2 rounded-lg border border-down/30 bg-down/[0.07] p-2 text-xs">
+              {fmtINR(lock.unbacked)} of the debt is not backed by any holding — you owe more than
+              the portfolio is worth, so the goals below are working with nothing held back for it.
             </p>
           )}
         </section>
@@ -221,7 +285,8 @@ export default async function PlanPage() {
         <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium">How the pool is shared</h2>
           <p className="mt-0.5 text-xs text-ink-3">
-            {fmtCompact(totalPool)} invested, claimed soonest-due first.
+            {fmtCompact(totalPool)} free to claim{lock.amount > 0 && <> after the lock</>},
+            claimed soonest-due first.
           </p>
           {/* One stacked bar, as on Home: the whole pool in a single row, with
               the unclaimed remainder visible as a segment rather than as a
@@ -275,7 +340,7 @@ export default async function PlanPage() {
           </ul>
           <p className="mt-3 font-mono text-[0.6875rem] tabular-nums text-ink-3">
             {fmtINR(totalPool - unclaimedTotal)} claimed + {fmtINR(unclaimedTotal)} unclaimed ={" "}
-            {fmtINR(totalPool)} invested
+            {fmtINR(totalPool)} free
           </p>
         </section>
       )}
@@ -337,9 +402,10 @@ export default async function PlanPage() {
 
       {/* ── The numbers every verdict above rests on ─────────────────────── */}
       <section className="rounded-xl border border-rule bg-surface p-4">
-        <h2 className="text-sm font-medium">Expected returns</h2>
+        <h2 className="text-sm font-medium">Asset classes</h2>
         <p className="mt-0.5 text-xs text-ink-3">
-          Assumed growth per asset class. Every figure on this page moves with them.
+          Assumed growth per class, and the share of locked funds each one gives up. Every figure
+          on this page moves with them.
         </p>
         <div className="mt-3">
           <AssetClassesEditor assetClasses={assetClasses} />

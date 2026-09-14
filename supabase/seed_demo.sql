@@ -282,10 +282,10 @@ begin
   end loop;
 
   -- ── Asset classes ──────────────────────────────────────────────────────
-  insert into public.asset_classes (user_id, name, expected_return) values (u_id, 'Equity', 12)       returning id into ac_eq;
-  insert into public.asset_classes (user_id, name, expected_return) values (u_id, 'Fixed income', 7)  returning id into ac_fi;
-  insert into public.asset_classes (user_id, name, expected_return) values (u_id, 'Gold', 9)          returning id into ac_gold;
-  insert into public.asset_classes (user_id, name, expected_return) values (u_id, 'Crypto', 15)       returning id into ac_crypto;
+  insert into public.asset_classes (user_id, name, expected_return, lock_weight) values (u_id, 'Equity', 12, 0)       returning id into ac_eq;
+  insert into public.asset_classes (user_id, name, expected_return, lock_weight) values (u_id, 'Fixed income', 7, 60)  returning id into ac_fi;
+  insert into public.asset_classes (user_id, name, expected_return, lock_weight) values (u_id, 'Gold', 9, 40)          returning id into ac_gold;
+  insert into public.asset_classes (user_id, name, expected_return, lock_weight) values (u_id, 'Crypto', 15, 0)       returning id into ac_crypto;
 
   -- ── Investment 1: Nifty 50 index fund — SIP 20k, stepped up to 30k ─────
   insert into public.investments (user_id, name, asset_class_id, opened_on, notes)

@@ -173,8 +173,12 @@ export async function createAssetClass(formData: FormData) {
   if (await isDemoWriteBlocked()) return { error: DEMO_WRITE_ERROR };
   const name = String(formData.get("name") ?? "").trim();
   const expected_return = Number(formData.get("expected_return"));
+  const lock_weight = Number(formData.get("lock_weight") ?? 0);
   if (!name) return { error: "Name is required." };
   if (!Number.isFinite(expected_return)) return { error: "Expected return must be a number." };
+  if (!Number.isFinite(lock_weight) || lock_weight < 0) {
+    return { error: "Lock share must be zero or more." };
+  }
 
   const supabase = await createClient();
   const {
@@ -184,13 +188,15 @@ export async function createAssetClass(formData: FormData) {
 
   const { error } = await supabase
     .from("asset_classes")
-    .insert({ user_id: user.id, name, expected_return });
+    .insert({ user_id: user.id, name, expected_return, lock_weight });
   if (error) {
     if (error.code === "23505") return { error: "An asset class with that name already exists." };
     return { error: error.message };
   }
   revalidatePath("/goals");
   revalidatePath("/investments");
+  revalidatePath("/plan");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -199,13 +205,17 @@ export async function updateAssetClass(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const expected_return = Number(formData.get("expected_return"));
+  const lock_weight = Number(formData.get("lock_weight") ?? 0);
   if (!id || !name) return { error: "Name is required." };
   if (!Number.isFinite(expected_return)) return { error: "Expected return must be a number." };
+  if (!Number.isFinite(lock_weight) || lock_weight < 0) {
+    return { error: "Lock share must be zero or more." };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("asset_classes")
-    .update({ name, expected_return })
+    .update({ name, expected_return, lock_weight })
     .eq("id", id);
   if (error) {
     if (error.code === "23505") return { error: "An asset class with that name already exists." };
@@ -213,6 +223,8 @@ export async function updateAssetClass(formData: FormData) {
   }
   revalidatePath("/goals");
   revalidatePath("/investments");
+  revalidatePath("/plan");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -231,5 +243,7 @@ export async function deleteAssetClass(formData: FormData) {
   }
   revalidatePath("/goals");
   revalidatePath("/investments");
+  revalidatePath("/plan");
+  revalidatePath("/");
   return { ok: true };
 }

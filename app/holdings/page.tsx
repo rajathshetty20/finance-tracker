@@ -14,6 +14,7 @@ import { impliedAnnualRate } from "@/lib/debtRate";
 import { portfolioXirrOverPeriod } from "@/lib/portfolioXirr";
 import { marketValueOf } from "@/lib/goals";
 import { inferEmis } from "@/lib/money";
+import { outstandingDebt } from "@/lib/lock";
 import { appToday } from "@/lib/demo";
 import { fmtDate, fmtINR } from "@/lib/dates";
 import Disclose from "../Disclose";
@@ -116,10 +117,7 @@ export default async function HoldingsPage() {
   for (const p of payments) paidBy.set(p.debt_id, (paidBy.get(p.debt_id) ?? 0) + Number(p.amount));
   const openDebts = debts.filter((d) => d.status === "open");
   const closedDebts = debts.filter((d) => d.status === "closed");
-  const debtPending = openDebts.reduce(
-    (a, d) => a + (Number(d.total_payable) - (paidBy.get(d.id) ?? 0)),
-    0,
-  );
+  const debtPending = outstandingDebt(debts, payments);
   const emis = inferEmis(openDebts, payments);
   const emiById = new Map(emis.map((e) => [e.debtId, e]));
 

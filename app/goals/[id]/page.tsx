@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { AssetClass, Goal, GoalAllocation, Investment, InvestmentEntry } from "@/lib/types";
+import type {
+  AssetClass,
+  Debt,
+  DebtPayment,
+  Goal,
+  GoalAllocation,
+  Investment,
+  InvestmentEntry,
+} from "@/lib/types";
 import {
   analyzeGoals,
   formatMonthsLeft,
@@ -12,6 +20,7 @@ import {
   targetCorpus,
   STEP_UP_RATE,
 } from "@/lib/goals";
+import { lockFunds, outstandingDebt } from "@/lib/lock";
 import { fmtINR, fmtMonthYear } from "@/lib/dates";
 import { appToday } from "@/lib/demo";
 import GlidePathEditor from "./GlidePathEditor";
@@ -29,12 +38,16 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     { data: classesData },
     { data: invsData },
     { data: entriesData },
+    { data: debtsData },
+    { data: paymentsData },
   ] = await Promise.all([
     supabase.from("goals").select("*").order("end_date", { ascending: true }),
     supabase.from("goal_allocations").select("*"),
     supabase.from("asset_classes").select("*").order("name", { ascending: true }),
     supabase.from("investments").select("*"),
     supabase.from("investment_entries").select("*"),
+    supabase.from("debts").select("*"),
+    supabase.from("debt_payments").select("*"),
   ]);
 
   const goals = (goalsData ?? []) as Goal[];
@@ -62,7 +75,13 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   }
   const myAllocs = allocByGoal.get(goal.id) ?? [];
 
-  const pool = poolByAssetClass(invs, entriesByInv);
+  // The same lock /plan and Home apply. Skipping it here would grade this goal
+  // against a pool the other two pages have already reserved for debt, and the
+  // three screens would print different funding for one goal.
+  const debts = (debtsData ?? []) as Debt[];
+  const payments = (paymentsData ?? []) as DebtPayment[];
+  const held = poolByAssetClass(invs, entriesByInv);
+  const pool = lockFunds(held, outstandingDebt(debts, payments), assetClasses).available;
   const today = await appToday();
 
   // Run the full waterfall so this goal's attributed corpus reflects the shared pool.

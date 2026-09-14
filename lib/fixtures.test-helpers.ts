@@ -32,8 +32,15 @@ export function goal(over: Partial<Goal> & { id: string }): Goal {
   };
 }
 
-export function assetClass(id: string, expected_return: number): AssetClass {
-  return { id, user_id: U, name: id, expected_return, created_at: "2020-01-01T00:00:00Z" };
+export function assetClass(id: string, expected_return: number, lock_weight = 0): AssetClass {
+  return {
+    id,
+    user_id: U,
+    name: id,
+    expected_return,
+    lock_weight,
+    created_at: "2020-01-01T00:00:00Z",
+  };
 }
 
 export function alloc(

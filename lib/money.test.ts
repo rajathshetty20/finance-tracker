@@ -201,8 +201,21 @@ test("salary investable uses the latest salary, not the income average", () => {
   });
   assert.equal(b.inhandSalary, 200_000);
   assert.equal(b.emiTotal, 10_000);
-  assert.equal(b.salaryInvestable, 200_000 - b.avgExpense - 10_000);
-  assert.notEqual(b.salaryInvestable, b.avgInvestable, "the two bases must differ");
+  assert.equal(b.investable, 200_000 - b.avgExpense);
+});
+
+test("the EMI is not netted off investable — the lock already holds the debt", () => {
+  const b = bases({
+    incomes: [ledger({ id: "i", date: "2026-01-31", amount: 100_000, category_id: "sal" })],
+    expenses: [ledger({ id: "e", date: "2026-01-05", amount: 30_000 })],
+    openDebts: [debt({ id: "d" })],
+    payments: [payment({ id: "p", debt_id: "d", date: "2026-01-10", amount: 25_000 })],
+  });
+  // The instalment is still reported — Home prints it — but paying it releases
+  // its own value of locked corpus, so charging it to income too would count
+  // the same rupees against the plan twice.
+  assert.equal(b.emiTotal, 25_000);
+  assert.equal(b.investable, 100_000 - b.avgExpense);
 });
 
 test("bonus and freelance never reach the salary figure", () => {

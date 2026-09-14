@@ -14,6 +14,7 @@ A self-hosted personal finance dashboard built around one idea: **your net worth
 - **Cashflow** — this month at a glance, then every category with its typical month beside the one in progress, so you can see which one is running hot. Ledger with category filter, note search, Indian financial-year ranges (Apr–Mar), and a CSV export of exactly the rows on screen.
 - **Holdings** — investments, cash and debts on one balance sheet. Per-holding XIRR, realized and unrealized gain, and one overall XIRR for every investment ever made. Cash is a signed ledger, so credit-card float is shown as money owed rather than counted as an asset.
 - **Debts** — principal, EMI **inferred from the last payment and dated as inferred** (there is no EMI column), an implied annual rate solved numerically from the amortisation equation, and the portfolio's return over that same loan's life — because prepaying earns the loan's rate, risk free, and that is the only decision the row supports.
+- **Fund locking** — corpus that is already spoken for is held back before goals claim anything. Debt repayment is the standing case: `total_payable` already contains every rupee of future interest, so the outstanding balance is fixed and only ever shrinks. You choose which asset classes it is drawn from, as relative weights per class.
 - **Goal-based investing** — the interesting part, below.
 - **Sign in with a code, not just a link** — the email carries both. A magic link can only be redeemed in the browser that asked for it, so opening it from a mail app fails, and link scanners can spend it before you click; the code works anywhere. A failed link says why and points at the code rather than bouncing you silently.
 - **Public demo** — `/demo` is a shareable link that signs the visitor into a read-only account. Writes are blocked **in the database** by RLS, not just in the UI, since the demo hands out a real JWT. The demo's clock is frozen to a fixed day so the data and the app's idea of "now" cannot drift apart.
@@ -26,8 +27,9 @@ Goals are a planning overlay — investments live in one shared pool and goals *
 1. **Inflation-adjusted targets** — a goal is a cost in today's money plus an inflation rate, projected to its date.
 2. **Glide paths** — each goal declares target allocations per asset class at milestones ("months before end"), interpolated linearly, so a far-off goal sits in equity and de-risks as it approaches.
 3. **Funded corpus** — the amount that, held today and left alone, reaches the target by the date at the assumed returns. This is what a goal *needs*.
-4. **Priority waterfall** — the pool is distributed soonest-due-first. A goal that received everything it needs is on track; one that did not is behind, by the gap. Whatever no goal claims is reported as unclaimed rather than quietly attributed.
-5. **Forward SIP** — the monthly contribution that closes the remaining gap, solved exactly (terminal corpus is affine in the contribution, so two simulations pin the line).
+4. **Locked funds come off the top** — `lib/lock.ts` reserves what is already committed before the waterfall runs, so goals only ever compete for corpus that is genuinely free, and the waterfall itself needs no notion of priority. Where a chosen split asks more of a class than it holds, the excess spills onto the classes with room; only an exhausted portfolio leaves a lock unbacked, which is reported rather than quietly dropped.
+5. **Priority waterfall** — the pool is distributed soonest-due-first. A goal that received everything it needs is on track; one that did not is behind, by the gap. Whatever no goal claims is reported as unclaimed rather than quietly attributed.
+6. **Forward SIP** — the monthly contribution that closes the remaining gap, solved exactly (terminal corpus is affine in the contribution, so two simulations pin the line).
 
 **On-track deliberately does not mean "on schedule."** An earlier version simulated a SIP from the goal's `created_at` and compared you to it, which made the verdict depend on the day you happened to create the row — a two-month-old plan needed almost nothing, so any real portfolio passed trivially. There is a test asserting that two identical goals created six years apart read the same.
 
@@ -38,7 +40,8 @@ Goals are a planning overlay — investments live in one shared pool and goals *
 - **Tailwind CSS 4**, **Recharts 3**, **Vercel**.
 - **All financial maths is pure functions under `lib/`** — no I/O, deterministic, independent of the UI, and unit-tested.
 - **Invariants live in the database**, not the app: one open phase per user (partial unique index), valuations must carry zero cash flow (check constraint), conditional foreign keys on money sources by kind.
-- **Every derived figure names its base.** "Investable" had four definitions in three files, differing by tens of thousands of rupees, all printed under one word; `lib/money.ts` is now the single source and each screen states which base it quoted.
+- **Every derived figure names its base.** "Investable" had four definitions in three files, differing by tens of thousands of rupees, all printed under one word; `lib/money.ts` now exposes exactly one, `in-hand salary − average expenses`.
+- **The same rupee is never charged twice.** The EMI is *not* subtracted from investable income, because the debt is already reserved against the corpus as a lock — and since `total_payable` carries the interest, paying an instalment releases exactly its own value of locked corpus back to the goals. The historical per-month view still nets it off, because there the instalment really did leave the bank; the two carry different words and each says which it means.
 - **Days come from a fixed timezone**, never the server clock or the browser — a ledger's day must not depend on where the code runs.
 
 ## Tests
